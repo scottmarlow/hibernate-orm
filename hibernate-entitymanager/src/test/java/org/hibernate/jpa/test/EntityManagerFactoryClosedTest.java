@@ -33,12 +33,11 @@ import org.junit.Test;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceException;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 /**
@@ -47,6 +46,13 @@ import static org.junit.Assert.fail;
  * @author Scott Marlow
  */
 public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalTestCase {
+
+	@Override
+	public Class[] getAnnotatedClasses() {
+		return new Class[] {
+				Wallet.class
+		};
+	}
 
 	@Override
 	protected void addConfigOptions(Map options) {
@@ -95,6 +101,31 @@ public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalT
 		assertFalse( entityManagerFactory.isOpen() );
 
 		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
+	}
+	@Test
+	public void testCreateRemoveCreateFind() throws Exception {
+		assertFalse( JtaStatusHelper.isActive(TestingJtaPlatformImpl.INSTANCE.getTransactionManager()) );
+		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
+		EntityManagerFactory entityManagerFactory =  entityManagerFactory();
+		EntityManager em = entityManagerFactory.createEntityManager();
+		Wallet w = new Wallet();
+		w.setBrand("Lacoste");
+		w.setModel("Minimic");
+		w.setSerial("4577");
+		em.persist(w);
+		em.flush();
+		em.createNativeQuery("delete from Wallet").executeUpdate();
+
+		Wallet wallet = em.find( Wallet.class, w.getSerial() );
+		assertNotNull("expected to locate wallet", wallet);
+
+		wallet.setBrand("Empty");
+		em.close();
+		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
+
+		//TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
+		//em.createNativeQuery("delete from Wallet").executeUpdate();
+		//TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
 	}
 
 }
