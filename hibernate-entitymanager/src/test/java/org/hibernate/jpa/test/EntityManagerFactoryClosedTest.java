@@ -33,6 +33,8 @@ import org.junit.Test;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.FlushModeType;
+import javax.persistence.Query;
 
 import java.util.Map;
 
@@ -114,8 +116,9 @@ public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalT
 
 		entityManager.joinTransaction();
 
-		int count = entityManager.createNativeQuery("DELETE FROM Item").executeUpdate();
-		assertTrue("deleted row count should be zero", count == 0);
+		Query q = entityManager.createNativeQuery("DELETE FROM Item");
+		q.setFlushMode(FlushModeType.COMMIT);
+		assertTrue("deleted row count should be zero", q.executeUpdate() == 0);
 
 		Item w = new Item("name1","description");
 		entityManager.persist(w);
@@ -125,8 +128,9 @@ public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalT
 		assertNotNull("couldn't find name1", w);
 		w.setDescr("description3");
 
-		count = entityManager.createNativeQuery("DELETE FROM Item").executeUpdate();
-		assertTrue("deleted row count should be one", count == 1);
+		q = entityManager.createNativeQuery("DELETE FROM Item");
+		q.setFlushMode(FlushModeType.COMMIT);
+		assertTrue("deleted row count should be one", q.executeUpdate() == 1);
 
 		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
 		entityManager.close();
