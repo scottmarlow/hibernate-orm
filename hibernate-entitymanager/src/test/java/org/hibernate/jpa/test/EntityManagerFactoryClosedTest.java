@@ -36,9 +36,7 @@ import javax.persistence.EntityManagerFactory;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 /**
@@ -54,6 +52,16 @@ public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalT
 		TestingJtaBootstrap.prepare(options);
 		options.put( AvailableSettings.TRANSACTION_TYPE, "JTA" );
 	}
+
+	@Override
+	public Class[] getAnnotatedClasses() {
+		return new Class[] {
+				Item.class,
+				Distributor.class,
+				Wallet.class
+		};
+	}
+
 
 	/**
 	 * Test that using a closed EntityManagerFactory throws an IllegalStateException
@@ -96,5 +104,31 @@ public class EntityManagerFactoryClosedTest extends BaseEntityManagerFunctionalT
 
 		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
 	}
+	@Test
+	public void cts180() throws Exception {
 
+		assertFalse( JtaStatusHelper.isActive(TestingJtaPlatformImpl.INSTANCE.getTransactionManager()) );
+		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
+		assertTrue( JtaStatusHelper.isActive(TestingJtaPlatformImpl.INSTANCE.getTransactionManager()) );
+		EntityManager entityManager = getOrCreateEntityManager();
+
+		entityManager.joinTransaction();
+
+		int count = entityManager.createNativeQuery("DELETE FROM Item").executeUpdate();
+		assertTrue("deleted row count should be zero", count == 0);
+
+		Item w = new Item("name1","description");
+		entityManager.persist(w);
+		entityManager.flush();
+
+		w = entityManager.find(Item.class, "name1");
+		assertNotNull("couldn't find name1", w);
+		w.setDescr("description3");
+
+		count = entityManager.createNativeQuery("DELETE FROM Item").executeUpdate();
+		assertTrue("deleted row count should be one", count == 1);
+
+		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
+		entityManager.close();
+	}
 }
