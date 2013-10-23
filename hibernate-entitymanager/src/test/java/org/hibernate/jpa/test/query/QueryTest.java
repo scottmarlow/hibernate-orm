@@ -23,7 +23,6 @@
  */
 package org.hibernate.jpa.test.query;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -36,15 +35,12 @@ import javax.persistence.Query;
 import javax.persistence.TemporalType;
 import javax.persistence.Tuple;
 
+import org.hibernate.jpa.test.*;
 import org.junit.Test;
 
 import org.hibernate.Hibernate;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.jpa.test.BaseEntityManagerFunctionalTestCase;
-import org.hibernate.jpa.test.Distributor;
-import org.hibernate.jpa.test.Item;
-import org.hibernate.jpa.test.Wallet;
 import org.hibernate.stat.Statistics;
 
 import junit.framework.Assert;
@@ -67,7 +63,8 @@ public class QueryTest extends BaseEntityManagerFunctionalTestCase {
 		return new Class[] {
 				Item.class,
 				Distributor.class,
-				Wallet.class
+				Wallet.class,
+				Dealer.class
 		};
 	}
 
@@ -700,5 +697,22 @@ public class QueryTest extends BaseEntityManagerFunctionalTestCase {
 		em.getTransaction().commit();
 
 		em.close();
+	}
+
+	@Test
+	public void testTreatAsFilter() {
+		EntityManager em = getOrCreateEntityManager();
+		em.getTransaction().begin();
+		Distributor regionalDistributor = new Distributor();
+		regionalDistributor.setName( "regional distributor" );
+		Dealer dealer  = new Dealer();
+		dealer.setName( "local dealer" );
+		em.persist( regionalDistributor );
+		em.persist( dealer );
+
+		List results = em.createQuery("select d.name from Distributor d WHERE TREAT(d as Dealer).name <> '' ").getResultList();
+		//List results = em.createQuery("select d.name from Distributor d WHERE d.name <> 'filteringbytype' ").getResultList();
+		assertTrue("result size should be one because there is only one Dealer instance", results.size() == 1);
+		em.getTransaction().rollback();
 	}
 }
