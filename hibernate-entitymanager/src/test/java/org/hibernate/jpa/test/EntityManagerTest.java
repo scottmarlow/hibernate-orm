@@ -336,6 +336,29 @@ public class EntityManagerTest extends BaseEntityManagerFunctionalTestCase {
 	}
 
 	@Test
+	public void testGetReferenceNoTx() throws Exception {
+		EntityManager em = getOrCreateEntityManager();
+		Item item = em.getReference( Item.class, "nonexistentone" );
+		try {
+			em.clear();
+			item.getDescr();
+			em.getTransaction().commit();
+			fail( "Object with wrong id should have failed" );
+		}
+		catch ( EntityNotFoundException e ) {
+			//success
+		}
+		catch ( Exception unexpected) {
+			fail( "unexpected exception " + unexpected.getMessage());
+		}
+		finally {
+			em.close();
+		}
+	}
+
+
+
+	@Test
 	public void testGetProperties() throws Exception {
 		EntityManager em = getOrCreateEntityManager();
 		Map<String, Object> properties = em.getProperties();
