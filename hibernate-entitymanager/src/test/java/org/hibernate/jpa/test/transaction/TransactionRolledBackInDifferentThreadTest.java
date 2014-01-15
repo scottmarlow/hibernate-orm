@@ -27,6 +27,7 @@ import javax.persistence.EntityManager;
 import javax.transaction.RollbackException;
 import javax.transaction.Status;
 import javax.transaction.SystemException;
+import javax.transaction.Transaction;
 import java.util.Map;
 
 import org.hibernate.HibernateException;
@@ -70,7 +71,13 @@ public class TransactionRolledBackInDifferentThreadTest extends BaseEntityManage
 		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
 		final EntityManager em = entityManagerFactory().createEntityManager();
 		em.joinTransaction();
-		TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
+		em.isJoinedToTransaction();
+		final Transaction transaction = TestingJtaPlatformImpl.INSTANCE.getTransactionManager().getTransaction();
+		if (em.isJoinedToTransaction() == false) {
+			throw new RuntimeException("foreground thread: transaction is not joined to  " + transaction);
+		}
+
+		// TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
 
 		// will be set to the failing exception
 		final HibernateException[] transactionRolledBackInDifferentThreadException = new HibernateException[2];
@@ -81,10 +88,15 @@ public class TransactionRolledBackInDifferentThreadTest extends BaseEntityManage
 			@Override
 			public void run() {
 				try {
-					TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
-					em.joinTransaction();
-					TestingJtaPlatformImpl.INSTANCE.getTransactionManager().setRollbackOnly();
-					TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
+					//if (em.isJoinedToTransaction() == false) {
+					//	throw new RuntimeException("background thread: transaction is not joined to  " + transaction);
+					//}
+					//transaction.commit();
+					transaction.rollback();
+					// TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
+					//em.joinTransaction();
+					// TestingJtaPlatformImpl.INSTANCE.getTransactionManager().setRollbackOnly();
+					//TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
 				} catch (javax.persistence.PersistenceException e) {
 					if (e.getCause() instanceof HibernateException &&
 							e.getCause().getMessage().equals("Transaction was rolled back in a different thread!")) {
@@ -94,9 +106,6 @@ public class TransactionRolledBackInDifferentThreadTest extends BaseEntityManage
 						e.printStackTrace();    // show the error first
 						transactionRolledBackInDifferentThreadException[0] = (HibernateException) e.getCause();
 					}
-				} catch (RollbackException ignored) {
-					// expected to see RollbackException: ARJUNA016053: Could not commit transaction.
-
 				} catch (Throwable throwable) {
 					throwable.printStackTrace();
 				} finally {
@@ -111,47 +120,10 @@ public class TransactionRolledBackInDifferentThreadTest extends BaseEntityManage
 			}
 		};
 
-		// test thread 2
-		final Runnable run2 = new Runnable() {
-			@Override
-			public void run() {
-				try {
-					TestingJtaPlatformImpl.INSTANCE.getTransactionManager().begin();
-					/**
-					 * the following call to em.joinTransaction() will throw:
-					 *   org.hibernate.HibernateException: Transaction was rolled back in a different thread!
-					 */
-					em.joinTransaction();
-					TestingJtaPlatformImpl.INSTANCE.getTransactionManager().commit();
-				} catch (javax.persistence.PersistenceException e) {
-					if (e.getCause() instanceof HibernateException &&
-							e.getCause().getMessage().equals("Transaction was rolled back in a different thread!")) {
-						/**
-						 * Save the exception for the main test thread to fail
-						 */
-						e.printStackTrace();    // show the error first
-						transactionRolledBackInDifferentThreadException[1] = (HibernateException) e.getCause();
-					}
-				} catch (Throwable throwable) {
-					throwable.printStackTrace();
-				} finally {
-					try {
-						if (TestingJtaPlatformImpl.INSTANCE.getTransactionManager().getStatus() != Status.STATUS_NO_TRANSACTION)
-							TestingJtaPlatformImpl.INSTANCE.getTransactionManager().rollback();
-					} catch (SystemException ignore) {
-
-					}
-				}
-			}
-		};
 
 		Thread thread = new Thread(run1, "test thread1");
 		thread.start();
 		thread.join();
-
-		Thread thread2 = new Thread(run2, "test thread2");
-		thread2.start();
-		thread2.join();
 
 		// show failure for exception caught in run2.run()
 		if (transactionRolledBackInDifferentThreadException[0] != null
