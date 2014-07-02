@@ -272,7 +272,7 @@ public class IndexBuilder {
 		Map<DotName, List<AnnotationInstance>> map = new HashMap<DotName, List<AnnotationInstance>>();
 		classInfoAnnotationsMap.put( classDotName, map );
 		ClassInfo classInfo = ClassInfo.create(
-				classDotName, superName, access_flag, interfaces, map
+				classDotName, superName, access_flag, interfaces, map, false
 		);
 		classes.put( classDotName, classInfo );
 		addSubClasses( superName, classInfo );

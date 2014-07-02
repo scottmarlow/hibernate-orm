@@ -347,7 +347,8 @@ public class JavaTypeDescriptorRepositoryImpl implements JavaTypeDescriptorRepos
 							null,
 							(short)0,
 							new DotName[0],
-							Collections.<DotName, List<AnnotationInstance>>emptyMap()
+							Collections.<DotName, List<AnnotationInstance>>emptyMap(),
+							false
 					)
 			);
 		}
