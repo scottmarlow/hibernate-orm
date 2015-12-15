@@ -38,7 +38,12 @@ public enum StandardOptimizerDescriptor {
 	 * Describes the optimizer for use with tables/sequences that store the chunk information.  Here, specifically the
 	 * lo value is stored in the database.
 	 */
-	POOLED_LO( "pooled-lo", PooledLoOptimizer.class, true );
+	POOLED_LO( "pooled-lo", PooledLoOptimizer.class, true ),
+	/**
+	 * Describes the optimizer for use with tables/sequences that store the chunk information.  Here, specifically the
+	 * lo value is stored in the database and ThreadLocal used to cache the generation state.
+	 */
+	POOLED_LOTL( "pooled-lotl", PooledThreadLocalLoOptimizer.class, true );
 
 	private static final Logger log = Logger.getLogger( StandardOptimizerDescriptor.class );
 

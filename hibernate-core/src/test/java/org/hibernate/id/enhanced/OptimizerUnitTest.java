@@ -239,9 +239,9 @@ public class OptimizerUnitTest extends BaseUnitTestCase {
 	}
 
 	@Test
-	public void testRecoveredPooledLoOptimizerUsage() {
+	public void testRecoveredPooledThreadLocalLoOptimizerUsage() {
 		final SourceMock sequence = new SourceMock( 1, 3 );
-		final Optimizer optimizer = buildPooledLoOptimizer( 1, 3 );
+		final Optimizer optimizer = buildPooledThreadLocalLoOptimizer( 1, 3 );
 
 		assertEquals( 0, sequence.getTimesCalled() );
 		assertEquals( -1, sequence.getCurrentValue() );
@@ -252,7 +252,92 @@ public class OptimizerUnitTest extends BaseUnitTestCase {
 		assertEquals( 1, sequence.getCurrentValue() );
 
 		// app ends, and starts back up (we should "lose" only 2 and 3 as id values)
-		final Optimizer optimizer2 = buildPooledLoOptimizer( 1, 3 );
+		final Optimizer optimizer2 = buildPooledThreadLocalLoOptimizer( 1, 3 );
+		next = ( Long ) optimizer2.generate( sequence );
+		assertEquals( 4, next.intValue() );
+		assertEquals( 2, sequence.getTimesCalled() );
+		assertEquals( 4, sequence.getCurrentValue() );
+	}
+
+	@Test
+	public void testBasicPooledThreadLocalLoOptimizerUsage() {
+		final SourceMock sequence = new SourceMock( 1, 3 );
+		final Optimizer optimizer = buildPooledThreadLocalLoOptimizer( 1, 3 );
+
+		assertEquals( 0, sequence.getTimesCalled() );
+		assertEquals( -1, sequence.getCurrentValue() );
+
+		Long next = ( Long ) optimizer.generate( sequence );
+		assertEquals( 1, next.intValue() );
+		assertEquals( 1, sequence.getTimesCalled() );
+		assertEquals( 1, sequence.getCurrentValue() );
+
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( 2, next.intValue() );
+		assertEquals( 1, sequence.getTimesCalled() );
+		assertEquals( 1, sequence.getCurrentValue() );
+
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( 3, next.intValue() );
+		assertEquals( 1, sequence.getTimesCalled() );
+		assertEquals( 1, sequence.getCurrentValue() );
+
+//		// force a "clock over"
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( 4, next.intValue() );
+		assertEquals( 2, sequence.getTimesCalled() );
+		assertEquals( (1+3), sequence.getCurrentValue() );
+	}
+
+	@Test
+	public void testSubsequentPooledThreadLocalLoOptimizerUsage() {
+		// test the pooled-lo optimizer in situation where the sequence is already beyond its initial value on init.
+		//		cheat by telling the sequence to start with 1000
+		final SourceMock sequence = new SourceMock( 1001, 3, 5 );
+		//		but tell the optimizer the start-with is 1
+		final Optimizer optimizer = buildPooledThreadLocalLoOptimizer( 1, 3 );
+
+		assertEquals( 5, sequence.getTimesCalled() );
+		assertEquals( 1001, sequence.getCurrentValue() );
+
+		// should "clock over" immediately
+		Long next = ( Long ) optimizer.generate( sequence );
+		assertEquals( (1001+3), next.intValue() );
+		assertEquals( (5+1), sequence.getTimesCalled() );
+		assertEquals( (1001+3), sequence.getCurrentValue() );
+
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( (1001+4), next.intValue() );
+		assertEquals( (5+1), sequence.getTimesCalled() );
+		assertEquals( (1001+3), sequence.getCurrentValue() );
+
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( (1001+5), next.intValue() );
+		assertEquals( (5+1), sequence.getTimesCalled() );
+		assertEquals( (1001+3), sequence.getCurrentValue() );
+
+//		// force a "clock over"
+		next = ( Long ) optimizer.generate( sequence );
+		assertEquals( (1001+6), next.intValue() );
+		assertEquals( (5+2), sequence.getTimesCalled() );
+		assertEquals( (1001+6), sequence.getCurrentValue() );
+	}
+
+	@Test
+	public void testRecoveredPooledLoOptimizerUsage() {
+		final SourceMock sequence = new SourceMock( 1, 3 );
+		final Optimizer optimizer = buildPooledThreadLocalLoOptimizer( 1, 3 );
+
+		assertEquals( 0, sequence.getTimesCalled() );
+		assertEquals( -1, sequence.getCurrentValue() );
+
+		Long next = ( Long ) optimizer.generate( sequence );
+		assertEquals( 1, next.intValue() );
+		assertEquals( 1, sequence.getTimesCalled() );
+		assertEquals( 1, sequence.getCurrentValue() );
+
+		// app ends, and starts back up (we should "lose" only 2 and 3 as id values)
+		final Optimizer optimizer2 = buildPooledThreadLocalLoOptimizer( 1, 3 );
 		next = ( Long ) optimizer2.generate( sequence );
 		assertEquals( 4, next.intValue() );
 		assertEquals( 2, sequence.getTimesCalled() );
@@ -273,6 +358,10 @@ public class OptimizerUnitTest extends BaseUnitTestCase {
 
 	private static Optimizer buildPooledLoOptimizer(long initial, int increment) {
 		return buildOptimizer( StandardOptimizerDescriptor.POOLED_LO, initial, increment );
+	}
+
+	private static Optimizer buildPooledThreadLocalLoOptimizer(long initial, int increment) {
+		return buildOptimizer( StandardOptimizerDescriptor.POOLED_LOTL, initial, increment );
 	}
 
 	private static Optimizer buildOptimizer(

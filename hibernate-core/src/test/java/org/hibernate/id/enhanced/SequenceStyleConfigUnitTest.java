@@ -294,6 +294,7 @@ public class SequenceStyleConfigUnitTest extends BaseUnitTestCase {
 			);
 			assertClassAssignability( SequenceStructure.class, generator.getDatabaseStructure().getClass() );
 			assertClassAssignability( PooledLoOptimizer.class, generator.getOptimizer().getClass() );
+			assertClassAssignability( PooledThreadLocalLoOptimizer.class, generator.getOptimizer().getClass() );
 		}
 		finally {
 			StandardServiceRegistryBuilder.destroy( serviceRegistry );
