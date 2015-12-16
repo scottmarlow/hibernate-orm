@@ -12,8 +12,8 @@ import org.hibernate.internal.CoreMessageLogger;
 import org.jboss.logging.Logger;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Variation of {@link PooledOptimizer} which interprets the incoming database value as the lo value, rather than
@@ -62,7 +62,14 @@ public class PooledThreadLocalLoOptimizer extends AbstractOptimizer {
 	@Override
 	public Serializable generate(AccessCallback callback) {
 
-		GenerationState local = localAssignedIds.get();
+		GenerationState local = null;
+
+		if ( callback.getTenantIdentifier() == null ) {  // for non-multi-tenancy, using a pool per thread
+			local = localAssignedIds.get();
+		} else if (tenantSpecificState != null) {		 // for multi-tenancy, using a pool per unique tenant
+			local = tenantSpecificState.get( callback.getTenantIdentifier());
+		}
+
 		if ( local != null && local.value.lt( local.upperLimitValue ) ) {
 			return local.value.makeValueThenIncrement();
 		}
@@ -70,43 +77,67 @@ public class PooledThreadLocalLoOptimizer extends AbstractOptimizer {
 		synchronized (this) {
 			final GenerationState generationState = locateGenerationState(callback);
 
-			if ( local == null ) {
-				localAssignedIds.set( generationState );
-			}
-			// if we reached the upper limit value, increment to next block of sequences
-			if (!generationState.value.lt(generationState.upperLimitValue)) {
-				generationState.lastSourceValue = callback.getNextValue();
-				generationState.upperLimitValue = generationState.lastSourceValue.copy().add(incrementSize);
-				generationState.value = generationState.lastSourceValue.copy();
-				// handle cases where initial-value is less that one (hsqldb for instance).
-				while (generationState.value.lt(1)) {
-					generationState.value.increment();
+			if(callback.getTenantIdentifier() != null) {
+				return generationState.value.makeValueThenIncrement();
+			} else {
+				if ( local == null ) {
+					localAssignedIds.set( generationState );
 				}
+				// if we reached the upper limit value, increment to next block of sequences
+				if (!generationState.value.lt(generationState.upperLimitValue)) {
+					generationState.lastSourceValue = callback.getNextValue();
+					generationState.upperLimitValue = generationState.lastSourceValue.copy().add(incrementSize);
+					generationState.value = generationState.lastSourceValue.copy();
+					// handle cases where initial-value is less that one (hsqldb for instance).
+					while (generationState.value.lt(1)) {
+						generationState.value.increment();
+					}
+				}
+				return generationState.value.makeValueThenIncrement();
 			}
-			return generationState.value.makeValueThenIncrement();
 		}
 	}
 
-	private GenerationState generationState;
+	private GenerationState noTenantState;
+	private Map<String,GenerationState> tenantSpecificState;
 	private final ThreadLocal<GenerationState> localAssignedIds = new ThreadLocal<GenerationState>();
 
-	private GenerationState locateGenerationState(AccessCallback callback) {
-		if ( generationState == null ) {
-			generationState = new GenerationState(callback, incrementSize);
+	private GenerationState locateGenerationState(final AccessCallback callback) {
+		if ( callback.getTenantIdentifier() == null ) {
+			if (noTenantState == null) {
+				noTenantState = new GenerationState(callback, incrementSize);
+			}
+			return noTenantState;
 		}
-		return generationState;
+		else {
+			GenerationState state;
+			if ( tenantSpecificState == null ) {
+				tenantSpecificState = new ConcurrentHashMap<String, GenerationState>();
+				state = new GenerationState(callback, incrementSize);
+				tenantSpecificState.put( callback.getTenantIdentifier(), state );
+			}
+			else {
+				state = tenantSpecificState.get( callback.getTenantIdentifier() );
+				if ( state == null ) {
+					state = new GenerationState(callback, incrementSize);
+					tenantSpecificState.put( callback.getTenantIdentifier(), state );
+				}
+			}
+			return state;
+
+		}
 	}
 
-	private GenerationState generationState() {
-		if ( generationState == null ) {
-			throw new IllegalStateException( "Could not locate previous generation state" );
+	private GenerationState noTenantGenerationState() {
+		if ( noTenantState == null ) {
+			throw new IllegalStateException( "Could not locate previous generation state for no-tenant" );
 		}
-		return generationState;
+		return noTenantState;
 	}
 
 	@Override
 	public IntegralDataTypeHolder getLastSourceValue() {
-		return generationState().lastSourceValue;
+		return noTenantGenerationState().lastSourceValue;
 	}
 
 	@Override
