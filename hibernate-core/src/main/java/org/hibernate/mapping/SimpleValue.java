@@ -252,7 +252,7 @@ public class SimpleValue implements KeyValue {
 
 		params.put(
 				AvailableSettings.PREFER_POOLED_VALUES_LO,
-				cs.getSetting( AvailableSettings.PREFER_POOLED_VALUES_LO, StandardConverters.BOOLEAN, false )
+				cs.getSetting( AvailableSettings.PREFER_POOLED_VALUES_LO, StandardConverters.STRING, "false" )
 		);
 
 		identifierGeneratorFactory.setDialect( dialect );

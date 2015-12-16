@@ -349,9 +349,15 @@ public class SequenceStyleGenerator
 	protected String determineOptimizationStrategy(Properties params, int incrementSize) {
 		// if the increment size is greater than one, we prefer pooled optimization; but we first
 		// need to see if the user prefers POOL or POOL_LO...
-		final String defaultPooledOptimizerStrategy = ConfigurationHelper.getBoolean( Environment.PREFER_POOLED_VALUES_LO, params, false )
-				? StandardOptimizerDescriptor.POOLED_LO.getExternalName()
-				: StandardOptimizerDescriptor.POOLED.getExternalName();
+		final String defaultPooledOptimizerStrategy;
+		final String pooledOptimizerStrategy = ConfigurationHelper.getString( Environment.PREFER_POOLED_VALUES_LO, params);
+		if (StandardOptimizerDescriptor.POOLED_LOTL.getExternalName().equals(pooledOptimizerStrategy)) {
+			defaultPooledOptimizerStrategy = StandardOptimizerDescriptor.POOLED_LOTL.getExternalName();
+		} else {
+			defaultPooledOptimizerStrategy = ConfigurationHelper.getBoolean(Environment.PREFER_POOLED_VALUES_LO, params, false)
+					? StandardOptimizerDescriptor.POOLED_LO.getExternalName()
+					: StandardOptimizerDescriptor.POOLED.getExternalName();
+		}
 		final String defaultOptimizerStrategy = incrementSize <= 1
 				? StandardOptimizerDescriptor.NONE.getExternalName()
 				: defaultPooledOptimizerStrategy;
