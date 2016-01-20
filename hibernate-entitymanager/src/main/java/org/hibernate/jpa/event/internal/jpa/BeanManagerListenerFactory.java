@@ -39,8 +39,16 @@ public class BeanManagerListenerFactory implements ListenerFactory {
 		if ( beanMetaData == null ) {
 			beanMetaData = new BeanMetaData<T>( listenerClass );
 			listeners.put( listenerClass, beanMetaData );
+			beanMetaData.setup(); // TODO: hack alert, move this call to the Extension callback
 		}
 		return beanMetaData.instance;
+	}
+
+	@Override
+	public void setup() {
+		for ( BeanMetaData beanMetaData : listeners.values() ) {
+			beanMetaData.setup();
+		}
 	}
 
 	@Override
@@ -53,12 +61,15 @@ public class BeanManagerListenerFactory implements ListenerFactory {
 
 	private class BeanMetaData<T> {
 		private final InjectionTarget<T> injectionTarget;
-		private final CreationalContext<T> creationalContext;
-		private final T instance;
+		private volatile CreationalContext<T> creationalContext;
+		private volatile T instance;
 
 		private BeanMetaData(Class<T> listenerClass) {
 			AnnotatedType<T> annotatedType = beanManager.createAnnotatedType( listenerClass );
 			this.injectionTarget = beanManager.createInjectionTarget( annotatedType );
+		}
+
+		private void setup() {
 			this.creationalContext = beanManager.createCreationalContext( null );
 
 			this.instance = injectionTarget.produce( creationalContext );

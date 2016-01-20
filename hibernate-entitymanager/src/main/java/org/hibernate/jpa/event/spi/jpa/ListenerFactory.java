@@ -15,4 +15,5 @@ public interface ListenerFactory {
 	public <T> T buildListener(Class<T>  listenerClass);
 
 	public void release();
+	public void setup();
 }

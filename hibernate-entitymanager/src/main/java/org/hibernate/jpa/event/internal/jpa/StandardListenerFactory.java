@@ -47,4 +47,9 @@ public class StandardListenerFactory implements ListenerFactory {
 	public void release() {
 		listenerInstances.clear();
 	}
+
+	@Override
+	public void setup() {
+
+	}
 }
