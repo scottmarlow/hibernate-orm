@@ -19,8 +19,8 @@ import javassist.bytecode.ConstPool;
 import javassist.bytecode.MethodInfo;
 import javassist.bytecode.Opcode;
 import javassist.bytecode.StackMapTable;
-import javassist.util.proxy.FactoryHelper;
-import javassist.util.proxy.RuntimeSupport;
+import org.hibernate.bytecode.internal.javassist.proxy.FactoryHelper;
+import org.hibernate.bytecode.internal.javassist.proxy.RuntimeSupport;
 
 /**
  * A factory of bulk accessors.

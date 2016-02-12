@@ -6,9 +6,8 @@
  */
 package org.hibernate.envers.internal.tools;
 
-import javassist.util.proxy.ProxyFactory;
-
 import org.hibernate.Session;
+import org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.persister.entity.EntityPersister;

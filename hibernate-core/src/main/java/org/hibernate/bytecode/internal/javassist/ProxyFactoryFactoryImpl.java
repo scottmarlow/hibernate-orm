@@ -9,12 +9,11 @@ package org.hibernate.bytecode.internal.javassist;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
-import javassist.util.proxy.MethodFilter;
-import javassist.util.proxy.MethodHandler;
-import javassist.util.proxy.Proxy;
-
 import org.hibernate.AssertionFailure;
 import org.hibernate.HibernateException;
+import org.hibernate.bytecode.internal.javassist.proxy.MethodFilter;
+import org.hibernate.bytecode.internal.javassist.proxy.MethodHandler;
+import org.hibernate.bytecode.internal.javassist.proxy.Proxy;
 import org.hibernate.bytecode.spi.BasicProxyFactory;
 import org.hibernate.bytecode.spi.ProxyFactoryFactory;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
@@ -59,7 +58,7 @@ public class ProxyFactoryFactoryImpl implements ProxyFactoryFactory {
 				throw new AssertionFailure( "attempting to build proxy without any superclass or interfaces" );
 			}
 
-			final javassist.util.proxy.ProxyFactory factory = new javassist.util.proxy.ProxyFactory();
+			final org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory factory = new org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory();
 			factory.setFilter( FINALIZE_FILTER );
 			if ( superClass != null ) {
 				factory.setSuperclass( superClass );

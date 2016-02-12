@@ -11,10 +11,9 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Set;
 
-import javassist.util.proxy.MethodFilter;
-import javassist.util.proxy.Proxy;
-
 import org.hibernate.HibernateException;
+import org.hibernate.bytecode.internal.javassist.proxy.MethodFilter;
+import org.hibernate.bytecode.internal.javassist.proxy.Proxy;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.util.ReflectHelper;
@@ -80,17 +79,17 @@ public class JavassistProxyFactory implements ProxyFactory, Serializable {
 		return interfaces.toArray( new Class[interfaces.size()] );
 	}
 
-	private javassist.util.proxy.ProxyFactory buildJavassistProxyFactory() {
+	private org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory buildJavassistProxyFactory() {
 		return buildJavassistProxyFactory(
 				persistentClass,
 				interfaces
 		);
 	}
 
-	public static javassist.util.proxy.ProxyFactory buildJavassistProxyFactory(
+	public static org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory buildJavassistProxyFactory(
 			final Class persistentClass,
 			final Class[] interfaces) {
-		javassist.util.proxy.ProxyFactory factory = new javassist.util.proxy.ProxyFactory() {
+		org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory factory = new org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory() {
 			@Override
 			protected ClassLoader getClassLoader() {
 				return persistentClass.getClassLoader();
@@ -144,7 +143,7 @@ public class JavassistProxyFactory implements ProxyFactory, Serializable {
 				ReflectHelper.overridesEquals( serializableProxy.getPersistentClass() )
 		);
 
-		final javassist.util.proxy.ProxyFactory factory = buildJavassistProxyFactory(
+		final org.hibernate.bytecode.internal.javassist.proxy.ProxyFactory factory = buildJavassistProxyFactory(
 				serializableProxy.getPersistentClass(),
 				serializableProxy.getInterfaces()
 		);

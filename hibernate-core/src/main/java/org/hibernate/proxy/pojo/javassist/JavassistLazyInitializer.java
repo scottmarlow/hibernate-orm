@@ -10,8 +10,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import javassist.util.proxy.MethodHandler;
-
+import org.hibernate.bytecode.internal.javassist.proxy.MethodHandler;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.util.ReflectHelper;
