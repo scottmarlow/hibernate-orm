@@ -1449,7 +1449,7 @@ public class ProxyFactory {
         code.addAload(0);
         code.addInvokestatic("org.hibernate.bytecode.internal.javassist.proxy.RuntimeSupport",
                              "makeSerializedProxy",
-                             "(Ljava/lang/Object;)Ljavassist/util/proxy/SerializedProxy;");
+                             "(Ljava/lang/Object;)Lorg/hibernate/bytecode/internal/javassist/proxy/SerializedProxy;");
         code.addOpcode(Opcode.ARETURN);
         minfo.setCodeAttribute(code.toCodeAttribute());
         return minfo;
