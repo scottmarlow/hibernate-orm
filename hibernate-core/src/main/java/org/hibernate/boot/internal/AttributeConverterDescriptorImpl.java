@@ -148,20 +148,19 @@ public class AttributeConverterDescriptorImpl implements AttributeConverterDescr
 		);
 	}
 
-	private static Method memberMethod;
+	private static final Method memberMethod;
+	static {
+		Class<JavaXMember> javaXMemberClass = JavaXMember.class;
+		try {
+			memberMethod = javaXMemberClass.getDeclaredMethod( "getMember" );
+			memberMethod.setAccessible( true );
+		}
+		catch (NoSuchMethodException e) {
+			throw new HibernateException( "Could not access org.hibernate.annotations.common.reflection.java.JavaXMember#getMember method", e );
+		}
+	}
 
 	private static Member toMember(XProperty xProperty) {
-		if ( memberMethod == null ) {
-			Class<JavaXMember> javaXMemberClass = JavaXMember.class;
-			try {
-				memberMethod = javaXMemberClass.getDeclaredMethod( "getMember" );
-				memberMethod.setAccessible( true );
-			}
-			catch (NoSuchMethodException e) {
-				throw new HibernateException( "Could not access org.hibernate.annotations.common.reflection.java.JavaXMember#getMember method", e );
-			}
-		}
-
 		try {
 			return (Member) memberMethod.invoke( xProperty );
 		}
