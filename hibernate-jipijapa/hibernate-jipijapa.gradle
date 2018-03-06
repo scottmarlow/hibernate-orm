@@ -1,0 +1,15 @@
+apply from: rootProject.file( 'gradle/published-java-module.gradle' )
+
+description = 'Integrate with WildFly JipiJapa '
+
+dependencies {
+    compile project( ':hibernate-core' )
+    compile( "org.wildfly:jipijapa-spi:12.0.0.Final" )
+    compile( "org.jboss:jboss-vfs:3.2.11.Final" )
+    // compile( "org.infinispan:infinispan-core:9.2.0.Final" )
+    compile( "org.infinispan:infinispan-hibernate-cache-commons:9.2.0.Final" )
+    
+    testCompile project( ':hibernate-testing' )
+    testCompile( libraries.mockito )
+    testCompile( libraries.mockito_inline )
+}
