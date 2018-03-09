@@ -12,7 +12,7 @@ ext {
     junitVersion = '4.12'
     h2Version = '1.4.196'
     bytemanVersion = '4.0.1' //Compatible with JDK10
-    infinispanVersion = '8.2.5.Final'
+    infinispanVersion = '9.2.0.Final'
     jnpVersion = '5.0.6.CR1'
 
     hibernateValidatorVersion = '6.0.7.Final'
