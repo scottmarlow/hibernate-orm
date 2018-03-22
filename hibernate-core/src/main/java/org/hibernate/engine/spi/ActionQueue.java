@@ -101,7 +101,7 @@ public class ActionQueue {
 	private BeforeTransactionCompletionProcessQueue beforeTransactionProcesses;
 
 	/**
-	 * An LinkedHashMap containing providers for all the ExecutableLists, inserted in execution order
+	 * A LinkedHashMap containing providers for all the ExecutableLists, inserted in execution order
 	 */
 	private static final LinkedHashMap<Class<? extends Executable>,ListProvider> EXECUTABLE_LISTS_MAP;
 	static {
@@ -1102,9 +1102,20 @@ public class ActionQueue {
 			 */
 			boolean hasParent(BatchIdentifier batchIdentifier) {
 				return (
-					parent == batchIdentifier ||
-					( parent != null && parent.hasParent( batchIdentifier ) ) ||
-					( parentEntityNames.contains( batchIdentifier.getEntityName() ) )
+					parent == batchIdentifier
+					|| ( parentEntityNames.contains( batchIdentifier.getEntityName() ) )
+					|| parent != null && parent.hasParent( batchIdentifier, new ArrayList<>() )
+				);
+			}
+
+			private boolean hasParent(BatchIdentifier batchIdentifier, List<BatchIdentifier> stack) {
+				if ( !stack.contains( this ) && parent != null ) {
+					stack.add( this );
+					return parent.hasParent( batchIdentifier, stack );
+				}
+				return (
+					parent == batchIdentifier
+					|| parentEntityNames.contains( batchIdentifier.getEntityName() )
 				);
 			}
 		}

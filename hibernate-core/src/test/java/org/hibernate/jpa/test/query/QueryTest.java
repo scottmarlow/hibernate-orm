@@ -43,6 +43,7 @@ import junit.framework.Assert;
 
 import static junit.framework.Assert.assertNull;
 import static org.hibernate.testing.junit4.ExtraAssertions.assertTyping;
+import static org.hibernate.testing.transaction.TransactionUtil.doInJPA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -703,6 +704,83 @@ public class QueryTest extends BaseEntityManagerFunctionalTestCase {
 		finally {
 			em.close();
 		}
+	}
+
+	@Test
+	@TestForIssue(jiraKey = "HHH-12290")
+	public void testParameterCollectionAndPositional() {
+		final Item item = new Item( "Mouse", "Microsoft mouse" );
+		final Item item2 = new Item( "Computer", "Dell computer" );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			entityManager.persist( item );
+			entityManager.persist( item2 );
+			assertTrue( entityManager.contains( item ) );
+		} );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			Query q = entityManager.createQuery( "select item from Item item where item.name in ?1 and item.descr = ?2" );
+			List params = new ArrayList();
+			params.add( item.getName() );
+			params.add( item2.getName() );
+			q.setParameter( 1, params );
+			q.setParameter( 2, item2.getDescr() );
+			List result = q.getResultList();
+			assertNotNull( result );
+			assertEquals( 1, result.size() );
+		} );
+
+	}
+
+	@Test
+	@TestForIssue(jiraKey = "HHH-12290")
+	public void testParameterCollectionParenthesesAndPositional() {
+		final Item item = new Item( "Mouse", "Microsoft mouse" );
+		final Item item2 = new Item( "Computer", "Dell computer" );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			entityManager.persist( item );
+			entityManager.persist( item2 );
+			assertTrue( entityManager.contains( item ) );
+		} );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			Query q = entityManager.createQuery(
+					"select item from Item item where item.name in (?1) and item.descr = ?2" );
+			List params = new ArrayList();
+			params.add( item.getName() );
+			params.add( item2.getName() );
+			q.setParameter( 1, params );
+			q.setParameter( 2, item2.getDescr() );
+			List result = q.getResultList();
+			assertNotNull( result );
+			assertEquals( 1, result.size() );
+		} );
+	}
+
+	@Test
+	@TestForIssue(jiraKey = "HHH-12290")
+	public void testParameterCollectionSingletonParenthesesAndPositional() {
+		final Item item = new Item( "Mouse", "Microsoft mouse" );
+		final Item item2 = new Item( "Computer", "Dell computer" );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			entityManager.persist( item );
+			entityManager.persist( item2 );
+			assertTrue( entityManager.contains( item ) );
+		} );
+
+		doInJPA( this::entityManagerFactory, entityManager -> {
+			Query q = entityManager.createQuery(
+					"select item from Item item where item.name in (?1) and item.descr = ?2" );
+			List params = new ArrayList();
+			params.add( item2.getName() );
+			q.setParameter( 1, params );
+			q.setParameter( 2, item2.getDescr() );
+			List result = q.getResultList();
+			assertNotNull( result );
+			assertEquals( 1, result.size() );
+		} );
 	}
 
 	@Test
