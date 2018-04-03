@@ -77,8 +77,7 @@ public class RegionFactoryInitiator implements StandardServiceInitiator<RegionFa
 			}
 		}
 
-		final Object setting = configurationValues.get( AvailableSettings.CACHE_REGION_FACTORY );
-
+		final Object setting = jipijapa(configurationValues, configurationValues.get( AvailableSettings.CACHE_REGION_FACTORY ));
 		final StrategySelector selector = registry.getService( StrategySelector.class );
 		final Collection<Class<? extends RegionFactory>> implementors = selector.getRegisteredStrategyImplementors( RegionFactory.class );
 
@@ -117,5 +116,17 @@ public class RegionFactoryInitiator implements StandardServiceInitiator<RegionFa
 		}
 
 		return NoCachingRegionFactory.INSTANCE;
+	}
+
+	private Object jipijapa(Map configurationValues, Object regionFactory) {
+		if ( "infinispanlegacyjpa".equals( regionFactory ) || "org.jboss.as.jpa.hibernate5.infinispan.SharedInfinispanRegionFactory".equals( regionFactory )) {
+			configurationValues.put( "hibernate.cache.infinispan.shared", "true" );
+			return "org.infinispan.hibernate.cache.commons.InfinispanRegionFactory";
+		}
+		else if ( "infinispanlegacynative".equals( regionFactory ) || "org.jboss.as.jpa.hibernate5.infinispan.InfinispanRegionFactory".equals( regionFactory )) {
+			configurationValues.put( "hibernate.cache.infinispan.shared", "false" );
+			return "org.infinispan.hibernate.cache.commons.InfinispanRegionFactory";
+		}
+		return regionFactory;
 	}
 }

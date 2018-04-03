@@ -129,7 +129,7 @@ public class HibernatePersistenceProviderAdaptor implements PersistenceProviderA
 				( sharedCacheMode != null && ( !NONE.equals( sharedCacheMode ) ) )
 				|| ( !SharedCacheMode.NONE.equals( pu.getSharedCacheMode() ) && ( !SharedCacheMode.UNSPECIFIED.equals(
 				pu.getSharedCacheMode() ) ) ) ) {
-//            HibernateSecondLevelCache.addSecondLevelCacheDependencies(pu.getProperties(), pu.getScopedPersistenceUnitName());
+			addSecondLevelCacheSettings(pu.getProperties(), pu.getScopedPersistenceUnitName());
 			JPA_LOGGER.tracef( "second level cache enabled for %s", pu.getScopedPersistenceUnitName() );
 		}
 		else {
@@ -227,5 +227,35 @@ public class HibernatePersistenceProviderAdaptor implements PersistenceProviderA
 	}
 
 	/* end of TwoPhaseBootstrapCapable methods */
+
+	private static final String DEFAULT_REGION_FACTORY = "org.infinispan.hibernate.cache.commons.InfinispanRegionFactory";
+
+	public void addSecondLevelCacheSettings(Properties mutableProperties, String scopedPersistenceUnitName) {
+
+		if ( mutableProperties.getProperty( AvailableSettings.CACHE_REGION_PREFIX ) == null ) {
+			// cache entries for this PU will be identified by scoped pu name + Entity class name
+
+			if ( scopedPersistenceUnitName != null ) {
+				mutableProperties.setProperty( AvailableSettings.CACHE_REGION_PREFIX, scopedPersistenceUnitName );
+			}
+		}
+		String regionFactory = mutableProperties.getProperty( AvailableSettings.CACHE_REGION_FACTORY );
+		if ( regionFactory == null ) {
+			regionFactory = DEFAULT_REGION_FACTORY;
+			mutableProperties.setProperty( AvailableSettings.CACHE_REGION_FACTORY, regionFactory );
+		}
+		// check ManagedEmbeddedCacheManagerProvider.SHARED
+		if ( Boolean.parseBoolean( mutableProperties.getProperty( "hibernate.cache.infinispan.shared", "true" ) ) ) {
+			// Set infinispan defaults
+			String container = mutableProperties.getProperty( "hibernate.cache.infinispan.container" );  // get ManagedEmbeddedCacheManagerProvider.CACHE_CONTAINER
+			if ( container == null ) {
+				container = "hibernate";  // ManagedEmbeddedCacheManagerProvider.DEFAULT_CACHE_CONTAINER;
+				// set ManagedEmbeddedCacheManagerProvider.CACHE_CONTAINER
+				mutableProperties.setProperty( "hibernate.cache.infinispan.container", container );
+			}
+
+		}
+	}
+
 }
 

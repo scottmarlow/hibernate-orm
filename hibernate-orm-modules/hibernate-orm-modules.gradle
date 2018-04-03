@@ -115,7 +115,7 @@ dependencies {
 	featurePack libraries.byteBuddy
 	featurePack project( ":hibernate-core" )
 	featurePack project( ":hibernate-envers" )
-	featurePack "org.wildfly:jipijapa-hibernate5:${wildflyVersion}"
+	featurePack ":jipijapa-hibernate:${hibernateVersion}"
 }
 
 publishing {
