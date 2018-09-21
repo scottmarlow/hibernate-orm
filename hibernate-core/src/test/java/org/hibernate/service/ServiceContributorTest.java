@@ -19,6 +19,7 @@ import org.hibernate.testing.junit4.BaseUnitTestCase;
 import org.junit.Test;
 
 import static org.hibernate.testing.junit4.ExtraAssertions.assertTyping;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -45,6 +46,28 @@ public class ServiceContributorTest extends BaseUnitTestCase {
 		}
 	}
 	@Test
+	public void CallCachingInitiatorTwice() {
+		StandardServiceRegistryBuilder ssrb = new StandardServiceRegistryBuilder();
+		ssrb.clearSettings();
+
+		final MyRegionFactoryInitiator initiator = new MyRegionFactoryInitiator();
+		ssrb.addInitiator( initiator );
+
+		final ServiceRegistryImplementor registry = (ServiceRegistryImplementor) ssrb.build();
+		try {
+			final RegionFactory regionFactory = registry.getService( RegionFactory.class );
+			assertEquals( initiator.calledCount, 1 );
+			final RegionFactory regionFactory2 = registry.getService( RegionFactory.class );
+			assertEquals( "initiator.calledCount should be two but was " + initiator.calledCount
+					,initiator.calledCount, 2 );
+			assertTyping( MyRegionFactory.class, regionFactory );
+		}
+		finally {
+			StandardServiceRegistryBuilder.destroy( registry );
+		}
+	}
+
+	@Test
 	public void overrideCachingInitiatorExplicitSet() {
 		StandardServiceRegistryBuilder ssrb = new StandardServiceRegistryBuilder();
 
@@ -64,12 +87,14 @@ public class ServiceContributorTest extends BaseUnitTestCase {
 
 	class MyRegionFactoryInitiator extends RegionFactoryInitiator {
 		private boolean called = false;
+		private int calledCount = 0;
 
 		@Override
 		protected RegionFactory getFallback(
 				Map configurationValues,
 				ServiceRegistryImplementor registry) {
 			called = true;
+			calledCount++;
 			return new MyRegionFactory();
 		}
 
