@@ -149,9 +149,15 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// things built in first phase, needed for second phase..
 	private final Map configurationValues;
-	private final StandardServiceRegistry standardServiceRegistry;
-	private final ManagedResources managedResources;
-	private final MetadataBuilderImplementor metamodelBuilder;
+	private Map integrationSettings;
+	private MetadataSources metadataSources;
+	private MergedSettings mergedSettings;
+	private ClassLoader providedClassLoader;
+	private ClassLoaderService providedClassLoaderService;
+	private  StandardServiceRegistry standardServiceRegistry;
+	private  ManagedResources managedResources;
+	private  MetadataBuilderImplementor metamodelBuilder;
+	private volatile boolean initialed = false;
 
 	private static class JpaEntityNotFoundDelegate implements EntityNotFoundDelegate, Serializable {
 		/**
@@ -182,6 +188,44 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 		this( persistenceUnit, integrationSettings, null, providedClassLoaderService);
 	}
 	
+	private void initialize() {
+		if ( initialed ) {
+			return;
+		}
+		synchronized (this) {
+			initialed = true;
+	
+			// todo : would be nice to have MetadataBuilder still do the handling of CfgXmlAccessService here
+			//		another option is to immediately handle them here (probably in mergeSettings?) as we encounter them...
+			final CfgXmlAccessService cfgXmlAccessService = standardServiceRegistry.getService( CfgXmlAccessService.class );
+			if ( cfgXmlAccessService.getAggregatedConfig() != null ) {
+				if ( cfgXmlAccessService.getAggregatedConfig().getMappingReferences() != null ) {
+					for ( MappingReference mappingReference : cfgXmlAccessService.getAggregatedConfig().getMappingReferences() ) {
+						mappingReference.apply( metadataSources );
+					}
+				}
+			}
+	
+			this.managedResources = MetadataBuildingProcess.prepare(
+					metadataSources,
+					metamodelBuilder.getBootstrapContext()
+			);
+	
+			applyMetadataBuilderContributor();
+	
+
+			// for the time being we want to revoke access to the temp ClassLoader if one was passed
+			metamodelBuilder.applyTempClassLoader( null );
+
+			// release parameters passed to constructor
+			this.integrationSettings = null;
+			this.providedClassLoader = null;
+			this.providedClassLoaderService = null;
+			this.mergedSettings = null;
+			this.metadataSources = null;
+		}
+	}
+	
 	private EntityManagerFactoryBuilderImpl(
 			PersistenceUnitDescriptor persistenceUnit,
 			Map integrationSettings,
@@ -191,18 +235,22 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 		LogHelper.logPersistenceUnitInformation( persistenceUnit );
 
 		this.persistenceUnit = persistenceUnit;
+		this.integrationSettings = integrationSettings;
+		this.providedClassLoader = providedClassLoader;
+		this.providedClassLoaderService = providedClassLoaderService;
+		
 
-		if ( integrationSettings == null ) {
-			integrationSettings = Collections.emptyMap();
+		if ( this.integrationSettings == null ) {
+			this.integrationSettings = Collections.emptyMap();
 		}
 
 		// Build the boot-strap service registry, which mainly handles class loader interactions
-		final BootstrapServiceRegistry bsr = buildBootstrapServiceRegistry( integrationSettings, providedClassLoader, providedClassLoaderService);
+		final BootstrapServiceRegistry bsr = buildBootstrapServiceRegistry( this.integrationSettings, providedClassLoader, providedClassLoaderService);
 
 		// merge configuration sources and build the "standard" service registry
 		final StandardServiceRegistryBuilder ssrBuilder = StandardServiceRegistryBuilder.forJpa( bsr );
 
-		final MergedSettings mergedSettings = mergeSettings( persistenceUnit, integrationSettings, ssrBuilder );
+		this.mergedSettings = mergeSettings( persistenceUnit, this.integrationSettings, ssrBuilder );
 
 		// flush before completion validation
 		if ( "true".equals( mergedSettings.configurationValues.get( Environment.FLUSH_BEFORE_COMPLETION ) ) ) {
@@ -220,33 +268,14 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 		configureIdentifierGenerators( standardServiceRegistry );
 
-		final MetadataSources metadataSources = new MetadataSources( bsr );
+		this.metadataSources = new MetadataSources( bsr );
 		List<AttributeConverterDefinition> attributeConverterDefinitions = applyMappingResources( metadataSources );
 
 		this.metamodelBuilder = (MetadataBuilderImplementor) metadataSources.getMetadataBuilder( standardServiceRegistry );
 		applyMetamodelBuilderSettings( mergedSettings, attributeConverterDefinitions );
-
-		// todo : would be nice to have MetadataBuilder still do the handling of CfgXmlAccessService here
-		//		another option is to immediately handle them here (probably in mergeSettings?) as we encounter them...
-		final CfgXmlAccessService cfgXmlAccessService = standardServiceRegistry.getService( CfgXmlAccessService.class );
-		if ( cfgXmlAccessService.getAggregatedConfig() != null ) {
-			if ( cfgXmlAccessService.getAggregatedConfig().getMappingReferences() != null ) {
-				for ( MappingReference mappingReference : cfgXmlAccessService.getAggregatedConfig().getMappingReferences() ) {
-					mappingReference.apply( metadataSources );
-				}
-			}
-		}
-
-		this.managedResources = MetadataBuildingProcess.prepare(
-				metadataSources,
-				metamodelBuilder.getBootstrapContext()
-		);
-
-		applyMetadataBuilderContributor();
-
-
+		
+		
 		withValidatorFactory( configurationValues.get( org.hibernate.cfg.AvailableSettings.JPA_VALIDATION_FACTORY ) );
-
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		// push back class transformation to the environment; for the time being this only has any effect in EE
 		// container situations, calling back into PersistenceUnitInfo#addClassTransformer
@@ -264,9 +293,6 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 			persistenceUnit.pushClassTransformer( enhancementContext );
 		}
-
-		// for the time being we want to revoke access to the temp ClassLoader if one was passed
-		metamodelBuilder.applyTempClassLoader( null );
 	}
 
 	private void applyMetadataBuilderContributor() {
@@ -317,6 +343,7 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// temporary!
 	public Map getConfigurationValues() {
+		initialize();
 		return Collections.unmodifiableMap( configurationValues );
 	}
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -342,33 +369,39 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 			@Override
 			public boolean isEntityClass(UnloadedClass classDescriptor) {
+				initialize();
 				return managedResources.getAnnotatedClassNames().contains( classDescriptor.getName() )
 						&& super.isEntityClass( classDescriptor );
 			}
 
 			@Override
 			public boolean isCompositeClass(UnloadedClass classDescriptor) {
+				initialize();
 				return managedResources.getAnnotatedClassNames().contains( classDescriptor.getName() )
 						&& super.isCompositeClass( classDescriptor );
 			}
 
 			@Override
 			public boolean doBiDirectionalAssociationManagement(UnloadedField field) {
+				initialize();
 				return associationManagementEnabled;
 			}
 
 			@Override
 			public boolean doDirtyCheckingInline(UnloadedClass classDescriptor) {
+				initialize();
 				return dirtyTrackingEnabled;
 			}
 
 			@Override
 			public boolean hasLazyLoadableAttributes(UnloadedClass classDescriptor) {
+				initialize();
 				return lazyInitializationEnabled;
 			}
 
 			@Override
 			public boolean isLazyLoadable(UnloadedField field) {
+				initialize();
 				return lazyInitializationEnabled;
 			}
 
@@ -1185,11 +1218,13 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 	 * Intended for internal testing only...
 	 */
 	public MetadataImplementor getMetadata() {
+		initialize();
 		return metadata;
 	}
 
 	@Override
 	public EntityManagerFactoryBuilder withValidatorFactory(Object validatorFactory) {
+		initialize();
 		this.validatorFactory = validatorFactory;
 
 		if ( validatorFactory != null ) {
@@ -1223,6 +1258,7 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 	@Override
 	public void generateSchema() {
+		initialize();
 		// This seems overkill, but building the SF is necessary to get the Integrators to kick in.
 		// Metamodel will clean this up...
 		try {
@@ -1243,6 +1279,7 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 	@Override
 	public EntityManagerFactory build() {
+		initialize();
 		final SessionFactoryBuilder sfBuilder = metadata().getSessionFactoryBuilder();
 		populateSfBuilder( sfBuilder, standardServiceRegistry );
 
