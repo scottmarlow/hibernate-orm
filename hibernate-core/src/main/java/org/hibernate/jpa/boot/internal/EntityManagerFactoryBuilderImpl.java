@@ -189,30 +189,9 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 	}
 	
 	private void initialize() {
-		if ( initialed ) {
-			return;
-		}
-		synchronized (this) {
-			initialed = true;
-	
-			// todo : would be nice to have MetadataBuilder still do the handling of CfgXmlAccessService here
-			//		another option is to immediately handle them here (probably in mergeSettings?) as we encounter them...
-			final CfgXmlAccessService cfgXmlAccessService = standardServiceRegistry.getService( CfgXmlAccessService.class );
-			if ( cfgXmlAccessService.getAggregatedConfig() != null ) {
-				if ( cfgXmlAccessService.getAggregatedConfig().getMappingReferences() != null ) {
-					for ( MappingReference mappingReference : cfgXmlAccessService.getAggregatedConfig().getMappingReferences() ) {
-						mappingReference.apply( metadataSources );
-					}
-				}
-			}
-	
-			this.managedResources = MetadataBuildingProcess.prepare(
-					metadataSources,
-					metamodelBuilder.getBootstrapContext()
-			);
-	
+		if ( !initialed ) {
+
 			applyMetadataBuilderContributor();
-	
 
 			// for the time being we want to revoke access to the temp ClassLoader if one was passed
 			metamodelBuilder.applyTempClassLoader( null );
@@ -223,6 +202,8 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 			this.providedClassLoaderService = null;
 			this.mergedSettings = null;
 			this.metadataSources = null;
+
+			initialed = true;
 		}
 	}
 	
@@ -273,6 +254,22 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 		this.metamodelBuilder = (MetadataBuilderImplementor) metadataSources.getMetadataBuilder( standardServiceRegistry );
 		applyMetamodelBuilderSettings( mergedSettings, attributeConverterDefinitions );
+
+		// todo : would be nice to have MetadataBuilder still do the handling of CfgXmlAccessService here
+		//		another option is to immediately handle them here (probably in mergeSettings?) as we encounter them...
+		final CfgXmlAccessService cfgXmlAccessService = standardServiceRegistry.getService( CfgXmlAccessService.class );
+		if ( cfgXmlAccessService.getAggregatedConfig() != null ) {
+			if ( cfgXmlAccessService.getAggregatedConfig().getMappingReferences() != null ) {
+				for ( MappingReference mappingReference : cfgXmlAccessService.getAggregatedConfig().getMappingReferences() ) {
+					mappingReference.apply( metadataSources );
+				}
+			}
+		}
+
+		this.managedResources = MetadataBuildingProcess.prepare(
+				metadataSources,
+				metamodelBuilder.getBootstrapContext()
+		);
 		
 		
 		withValidatorFactory( configurationValues.get( org.hibernate.cfg.AvailableSettings.JPA_VALIDATION_FACTORY ) );
@@ -369,39 +366,33 @@ public class EntityManagerFactoryBuilderImpl implements EntityManagerFactoryBuil
 
 			@Override
 			public boolean isEntityClass(UnloadedClass classDescriptor) {
-				initialize();
 				return managedResources.getAnnotatedClassNames().contains( classDescriptor.getName() )
 						&& super.isEntityClass( classDescriptor );
 			}
 
 			@Override
 			public boolean isCompositeClass(UnloadedClass classDescriptor) {
-				initialize();
 				return managedResources.getAnnotatedClassNames().contains( classDescriptor.getName() )
 						&& super.isCompositeClass( classDescriptor );
 			}
 
 			@Override
 			public boolean doBiDirectionalAssociationManagement(UnloadedField field) {
-				initialize();
 				return associationManagementEnabled;
 			}
 
 			@Override
 			public boolean doDirtyCheckingInline(UnloadedClass classDescriptor) {
-				initialize();
 				return dirtyTrackingEnabled;
 			}
 
 			@Override
 			public boolean hasLazyLoadableAttributes(UnloadedClass classDescriptor) {
-				initialize();
 				return lazyInitializationEnabled;
 			}
 
 			@Override
 			public boolean isLazyLoadable(UnloadedField field) {
-				initialize();
 				return lazyInitializationEnabled;
 			}
 
