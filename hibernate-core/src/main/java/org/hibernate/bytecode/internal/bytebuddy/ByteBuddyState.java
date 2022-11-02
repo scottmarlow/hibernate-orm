@@ -207,17 +207,26 @@ public final class ByteBuddyState {
 		return make( null, builder );
 	}
 
-	private Unloaded<?> make(TypePool typePool, DynamicType.Builder<?> builder) {
-		builder = classRewriter.installReflectionMethodVisitors( builder );
+	private Unloaded<?> make(TypePool typePool, final DynamicType.Builder<?> builderParameter) {
 
-		Unloaded<?> unloadedClass;
-		if ( typePool != null ) {
-			unloadedClass = builder.make( typePool );
-		}
-		else {
-			unloadedClass = builder.make();
-		}
-
+		PrivilegedAction<Unloaded<?>> delegateToPrivilegedAction =
+				new PrivilegedAction<Unloaded<?>>() {
+					@Override
+					public Unloaded<?> run() {
+						DynamicType.Builder<?> builder =classRewriter.installReflectionMethodVisitors(builderParameter );
+						if(typePool !=null)
+						{
+							return builder.make( typePool );
+						}
+						else
+						{
+							return builder.make();
+						}
+					}
+				};
+		Unloaded<?> unloadedClass = SystemSecurityManager.isSecurityManagerEnabled()?
+				AccessController.doPrivileged(delegateToPrivilegedAction) :
+						delegateToPrivilegedAction.run();
 		if ( DEBUG ) {
 			try {
 				unloadedClass.saveIn( new File( System.getProperty( "java.io.tmpdir" ) + "/bytebuddy/" ) );
