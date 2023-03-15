@@ -162,7 +162,7 @@ public abstract class AbstractDomainPath implements DomainPath {
 					String foreignKeyModelPart = toOneAttribute.getAttributeName() + "."
 							+ toOneAttribute.getTargetKeyPropertyName();
 
-					if ( modelPartName.equals( foreignKeyModelPart ) ) {
+					if ( modelPartName.equals( foreignKeyModelPart ) || modelPartName.equals( toOneAttribute.getAttributeName() )) {
 						subPart = toOneAttribute.findSubPart( toOneAttribute.getTargetKeyPropertyName() );
 					}
 				}
