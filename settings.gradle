@@ -39,6 +39,7 @@ dependencyResolutionManagement {
         maven {
             url "https://jakarta.oss.sonatype.org/content/repositories/snapshots/"
         }
+        mavenLocal()
 
         //Allow loading additional dependencies from a local path;
         //useful to load JDBC drivers which can not be distributed in public.
@@ -79,7 +80,7 @@ dependencyResolutionManagement {
             alias( "loggingProcessor" ).to ( "org.jboss.logging", "jboss-logging-processor" ).version( "2.2.1.Final" )
 
             alias( "hcann" ).to( "org.hibernate.common", "hibernate-commons-annotations" ).versionRef( "hcann" )
-            alias( "jandex" ).to("io.smallrye", "jandex" ).version( "3.0.5" )
+            alias( "jandex" ).to("io.smallrye", "jandex" ).version( "3.0.6-SNAPSHOT" )
             alias( "classmate" ).to( "com.fasterxml", "classmate" ).version( "1.5.1" )
 
             alias( "jackson" ).to ( "com.fasterxml.jackson.core", "jackson-databind" ).version( "2.14.1" )

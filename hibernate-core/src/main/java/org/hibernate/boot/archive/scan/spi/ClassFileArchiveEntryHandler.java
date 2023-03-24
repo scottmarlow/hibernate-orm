@@ -41,9 +41,11 @@ public class ClassFileArchiveEntryHandler implements ArchiveEntryHandler {
 	};
 
 	private final ScanResultCollector resultCollector;
+	private final Indexer.Factory indexerFactory;
 
 	public ClassFileArchiveEntryHandler(ScanResultCollector resultCollector) {
 		this.resultCollector = resultCollector;
+		this.indexerFactory = Indexer.factory();
 	}
 
 	@Override
@@ -60,7 +62,7 @@ public class ClassFileArchiveEntryHandler implements ArchiveEntryHandler {
 
 	private ClassDescriptor toClassDescriptor(ArchiveEntry entry) {
 		try (InputStream inputStream = entry.getStreamAccess().accessInputStream()) {
-			Indexer indexer = new Indexer();
+			Indexer indexer = indexerFactory.createIndexer();
 			ClassSummary classSummary = indexer.indexWithSummary( inputStream );
 			Index index = indexer.complete();
 			return toClassDescriptor( classSummary, index, entry );
