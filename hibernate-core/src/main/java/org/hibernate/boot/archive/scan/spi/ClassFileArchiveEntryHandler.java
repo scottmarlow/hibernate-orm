@@ -41,7 +41,7 @@ public class ClassFileArchiveEntryHandler implements ArchiveEntryHandler {
 	};
 
 	private final ScanResultCollector resultCollector;
-        private Indexer indexer = new Indexer();
+        private final Indexer indexer = new Indexer();
 
 	public ClassFileArchiveEntryHandler(ScanResultCollector resultCollector) {
 		this.resultCollector = resultCollector;
