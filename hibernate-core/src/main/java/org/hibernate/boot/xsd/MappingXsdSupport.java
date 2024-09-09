@@ -102,6 +102,7 @@ public class MappingXsdSupport {
 			case "2.2":
 			case "3.0":
 			case "3.1":
+			case "3.2":
 				return true;
 			default:
 				return false;
