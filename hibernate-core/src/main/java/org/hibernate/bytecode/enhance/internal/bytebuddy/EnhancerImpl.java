@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import net.bytebuddy.description.method.MethodList;
 import org.hibernate.Version;
 import org.hibernate.bytecode.enhance.VersionMismatchException;
 import org.hibernate.bytecode.enhance.internal.tracker.CompositeOwnerTracker;
@@ -43,6 +44,7 @@ import org.hibernate.internal.CoreMessageLogger;
 
 import jakarta.persistence.Access;
 import jakarta.persistence.AccessType;
+import jakarta.persistence.Id;
 import jakarta.persistence.metamodel.Type;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.annotation.AnnotationDescription;
@@ -168,6 +170,11 @@ public class EnhancerImpl implements Enhancer {
 			verifyVersions( managedCtClass, enhancementContext );
 
 			log.debugf( "Skipping enhancement of [%s]: already enhanced", managedCtClass.getName() );
+			return null;
+		}
+
+		// Check for HHH-16572 (PROPERTY attributes with mismatched field and method names)
+		if ( unsupportedEnhancement( managedCtClass ) ) {
 			return null;
 		}
 
@@ -378,6 +385,24 @@ public class EnhancerImpl implements Enhancer {
 			log.debugf( "Skipping enhancement of [%s]: not entity or composite", managedCtClass.getName() );
 			return null;
 		}
+	}
+
+	// See HHH-16572
+	// return true if enhancement is unsupported
+	private boolean unsupportedEnhancement(TypeDescription managedCtClass) {
+		MethodList<MethodDescription.InDefinedShape> list = managedCtClass.getDeclaredMethods();
+		for ( MethodDescription.InDefinedShape shape: list) {
+			AnnotationList annotationList = shape.getDeclaredAnnotations();
+
+			if ( annotationList.isAnnotationPresent(Id.class)) {
+				log.debugf( "Skipping enhancement of [%s]: due to use of [%s] annotation", managedCtClass.getName(), Id.class.getName() );
+				return true;
+			} else if ( annotationList.isAnnotationPresent(Access.class)) {
+				log.debugf( "Skipping enhancement of [%s]: due to use of [%s] annotation", managedCtClass.getName(), Access.class.getName() );
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void verifyVersions(TypeDescription managedCtClass, ByteBuddyEnhancementContext enhancementContext) {
