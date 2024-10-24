@@ -391,35 +391,36 @@ public class EnhancerImpl implements Enhancer {
 	private boolean unsupportedEnhancement(TypeDescription managedCtClass) {
 		boolean result = false;
 		// Check for use of ID/AccessType(PROPERTY) on methods
-		for ( MethodDescription.InDefinedShape shape: managedCtClass.getDeclaredMethods()) {
+
+		for (MethodDescription.InDefinedShape shape : managedCtClass.getDeclaredMethods()) {
 			AnnotationDescription.Loadable<Access> access = shape.getDeclaredAnnotations().ofType(Access.class);
 			AnnotationDescription.Loadable<Id> id = shape.getDeclaredAnnotations().ofType(Id.class);
-			if ( access != null && access.load().value() == AccessType.PROPERTY ) {
-				if ( !log.isDebugEnabled() ) {
+			if (access != null && access.load().value() == AccessType.PROPERTY) {
+				if (!log.isDebugEnabled()) {
 					// return immediately if debug logging is not enabled.
 					return true;
 				}
 				log.debugf("Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Access.class.getName());
 				result = true;
 			}
-			if ( id != null) {
-				if ( !log.isDebugEnabled() ) {
+			if (id != null) {
+				if (!log.isDebugEnabled()) {
 					// return immediately if debug logging is not enabled.
 					return true;
 				}
-				log.debugf( "Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Id.class.getName() );
+				log.debugf("Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Id.class.getName());
 				result = true;
 			}
 		}
 
 		TypeDescription.Generic superclass = managedCtClass.getSuperClass();
-        while ( superclass != null && superclass.getSuperClass() != null) {
+		while (superclass != null && superclass.getSuperClass() != null) {
 			// Check for use of ID/AccessType(PROPERTY) on methods
 			for (MethodDescription.InGenericShape shape : superclass.getDeclaredMethods()) {
 				AnnotationDescription.Loadable<Access> access = shape.getDeclaredAnnotations().ofType(Access.class);
 				AnnotationDescription.Loadable<Id> id = shape.getDeclaredAnnotations().ofType(Id.class);
 				if (access != null && access.load().value() == AccessType.PROPERTY) {
-					if ( !log.isDebugEnabled() ) {
+					if (!log.isDebugEnabled()) {
 						// return immediately if debug logging is not enabled.
 						return true;
 					}
@@ -427,7 +428,7 @@ public class EnhancerImpl implements Enhancer {
 					result = true;
 				}
 				if (id != null) {
-					if ( !log.isDebugEnabled() ) {
+					if (!log.isDebugEnabled()) {
 						// return immediately if debug logging is not enabled.
 						return true;
 					}
@@ -437,7 +438,6 @@ public class EnhancerImpl implements Enhancer {
 			}
 			superclass = superclass.getSuperClass();
 		}
-
 		return result;
 	}
 
