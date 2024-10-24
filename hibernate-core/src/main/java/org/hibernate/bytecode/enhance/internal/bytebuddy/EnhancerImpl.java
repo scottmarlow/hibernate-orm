@@ -402,7 +402,7 @@ public class EnhancerImpl implements Enhancer {
 				log.debugf("Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Access.class.getName());
 				result = true;
 			}
-			else if ( id != null) {
+			if ( id != null) {
 				if ( !log.isDebugEnabled() ) {
 					// return immediately if debug logging is not enabled.
 					return true;
@@ -425,7 +425,8 @@ public class EnhancerImpl implements Enhancer {
 					}
 					log.debugf("Skipping enhancement of [%s]: due to superclass [%s] use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), superclass.getActualName(), Access.class.getName());
 					result = true;
-				} else if (id != null) {
+				}
+				if (id != null) {
 					if ( !log.isDebugEnabled() ) {
 						// return immediately if debug logging is not enabled.
 						return true;
