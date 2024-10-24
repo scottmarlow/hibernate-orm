@@ -413,7 +413,7 @@ public class EnhancerImpl implements Enhancer {
 		}
 
 		TypeDescription.Generic superclass = managedCtClass.getSuperClass();
-        while ( superclass != null) {
+        while ( superclass != null && superclass.getSuperClass() != null) {
 			// Check for use of ID/AccessType(PROPERTY) on methods
 			for (MethodDescription.InGenericShape shape : superclass.getDeclaredMethods()) {
 				AnnotationDescription.Loadable<Access> access = shape.getDeclaredAnnotations().ofType(Access.class);
