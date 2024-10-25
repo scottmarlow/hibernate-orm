@@ -413,7 +413,7 @@ public class EnhancerImpl implements Enhancer {
 			}
 		}
 		MethodGraph.Linked methodGraph = MethodGraph.Compiler.Default.forJavaHierarchy().compile(managedCtClass);
-		for(MethodGraph.Node node: methodGraph.listNodes()) {
+		for (MethodGraph.Node node : methodGraph.listNodes()) {
 			MethodDescription methodDescription = node.getRepresentative();
 			AnnotationDescription.Loadable<Access> access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
 			AnnotationDescription.Loadable<Id> id = methodDescription.getDeclaredAnnotations().ofType(Id.class);
