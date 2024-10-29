@@ -173,12 +173,13 @@ public class EnhancerImpl implements Enhancer {
 			return null;
 		}
 
-		// Check for HHH-16572 (PROPERTY attributes with mismatched field and method names)
-		if ( unsupportedEnhancement( managedCtClass ) ) {
-			return null;
-		}
-
 		if ( enhancementContext.isEntityClass( managedCtClass ) ) {
+
+			// Check for HHH-16572 (PROPERTY attributes with mismatched field and method names)
+			if ( !allowedEnhancementCheck( managedCtClass ) ) {
+				return null;
+			}
+
 			log.debugf( "Enhancing [%s] as Entity", managedCtClass.getName() );
 			DynamicType.Builder<?> builder = builderSupplier.get();
 			builder = builder.implement( ManagedEntity.class )
@@ -338,6 +339,12 @@ public class EnhancerImpl implements Enhancer {
 			return createTransformer( managedCtClass ).applyTo( builder );
 		}
 		else if ( enhancementContext.isCompositeClass( managedCtClass ) ) {
+
+			// Check for HHH-16572 (PROPERTY attributes with mismatched field and method names)
+			if ( !allowedEnhancementCheck( managedCtClass ) ) {
+				return null;
+			}
+
 			log.debugf( "Enhancing [%s] as Composite", managedCtClass.getName() );
 
 			DynamicType.Builder<?> builder = builderSupplier.get();
@@ -371,6 +378,12 @@ public class EnhancerImpl implements Enhancer {
 			return createTransformer( managedCtClass ).applyTo( builder );
 		}
 		else if ( enhancementContext.isMappedSuperclassClass( managedCtClass ) ) {
+
+			// Check for HHH-16572 (PROPERTY attributes with mismatched field and method names)
+			if ( !allowedEnhancementCheck( managedCtClass ) ) {
+				return null;
+			}
+
 			log.debugf( "Enhancing [%s] as MappedSuperclass", managedCtClass.getName() );
 
 			DynamicType.Builder<?> builder = builderSupplier.get();
@@ -388,51 +401,158 @@ public class EnhancerImpl implements Enhancer {
 	}
 
 	// See HHH-16572
-	// return true if enhancement is unsupported
-	private boolean unsupportedEnhancement(TypeDescription managedCtClass) {
-		boolean result = false;
-		// Check for use of ID/AccessType(PROPERTY) on methods
-		for (MethodDescription.InDefinedShape shape : managedCtClass.getDeclaredMethods()) {
-			AnnotationDescription.Loadable<Access> access = shape.getDeclaredAnnotations().ofType(Access.class);
-			AnnotationDescription.Loadable<Id> id = shape.getDeclaredAnnotations().ofType(Id.class);
-			if (access != null && access.load().value() == AccessType.PROPERTY) {
-				if (!log.isDebugEnabled()) {
-					// return immediately if debug logging is not enabled.
-					return true;
+	// return true if enhancement is supported
+	private boolean allowedEnhancementCheck(TypeDescription managedCtClass) {
+		// For process access rules, See https://jakarta.ee/specifications/persistence/3.2/jakarta-persistence-spec-3.2#default-access-type
+		// and https://jakarta.ee/specifications/persistence/3.2/jakarta-persistence-spec-3.2#a122
+		//
+		// This check will determine if entity field names do not match Property accessor method name
+		// For example:
+		// @Entity
+		// class Book {
+		//   Integer id;
+		//   String smtg;
+		//
+		//   @Id Integer getId() { return id; }
+		//   String getSomething() { return smtg; }
+		// }
+		//
+		// The check will determine that the name of the getter/setter method for "Something" doesn't refer to an entity field
+		// and will return false.  If the property accessor method(s) are named to match the field name(s), return true.
+
+		// determine the default AccessType for entity hierarchy https://jakarta.ee/specifications/persistence/3.2/jakarta-persistence-spec-3.2#a122
+		// TODO: ^ needs to be handled for all of {entity class, mapped superclass, embeddable class, mapping annotations}
+		AnnotationDescription.Loadable<Access> access = managedCtClass.getDeclaredAnnotations().ofType(Access.class);
+		// boolean accessTypeDefaultIsProperty = (access != null && access.load().value() == AccessType.PROPERTY);
+		boolean accessTypeDefaultIsField = (access != null && access.load().value() == AccessType.FIELD);
+		boolean result = true;
+		List<AnnotatedFieldDescription> fieldList = new ArrayList<>();
+		for (FieldDescription ctField : managedCtClass.getDeclaredFields()) {
+			if (!Modifier.isStatic(ctField.getModifiers())) {
+				AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription(enhancementContext, ctField);
+				if (enhancementContext.isPersistentField(annotatedField)) {
+					fieldList.add(annotatedField);
 				}
-				log.debugf("Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Access.class.getName());
-				result = true;
-			}
-			if (id != null) {
-				if (!log.isDebugEnabled()) {
-					// return immediately if debug logging is not enabled.
-					return true;
-				}
-				log.debugf("Skipping enhancement of [%s]: due to use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), Id.class.getName());
-				result = true;
 			}
 		}
+		// Check that getter/setters are named to reference a field that matches the method name pattern
+		for (MethodDescription.InDefinedShape method : managedCtClass.getDeclaredMethods()) {
+			String methodName = method.getActualName();
+			if (methodName.equals("") ||
+					(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
+				log.debugf("Enhancer will not validate class [%s] method [%s]", managedCtClass.getName(), methodName);
+				continue;
+			}
+			access = method.getDeclaredAnnotations().ofType(Access.class);
+			// AnnotationDescription.Loadable<Id> id = method.getDeclaredAnnotations().ofType(Id.class);
+			if (accessTypeDefaultIsField) {
+				if (access == null || null == (access.load().value())) {
+					// log warning about undefined case when entity class defaults to AccessType.FIELD but
+					// property accessor doesn't override with AccessType.PROPERTY setting.
+					// Reviewer: should this log message be changed to DEBUG instead of Warning?
+					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY]", managedCtClass.getName(), methodName);
+					result = false;
+				}
+			}
+
+			String methodFieldName;
+			if (methodName.startsWith("is")) { // skip past "is"
+				methodFieldName = methodName.substring(2);
+			} else { // skip past "get" or "set"
+				methodFieldName = methodName.substring(3);
+			}
+			boolean propertyNameMatchesFieldName = false;
+			// convert field letter to lower case
+			methodFieldName = methodFieldName.substring(0, 1).toLowerCase() + methodFieldName.substring(1);
+			for (AnnotatedFieldDescription field : fieldList) {
+				String fieldName = field.getName();
+				if (fieldName.equals(methodFieldName)) {
+					propertyNameMatchesFieldName = true;
+					break;
+				}
+			}
+
+			if (propertyNameMatchesFieldName == false) {
+				StringBuilder fields = new StringBuilder();
+				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
+				fields.deleteCharAt(fields.length() - 1);
+				log.debugf("Skipping enhancement of [%s]: due to property accessor method [%s] not matching actual class field names [%s]", managedCtClass.getName(), methodName, fields);
+				result = false;
+			}
+			if (result == false && !log.isDebugEnabled()) {
+				// return immediately if debug logging is not enabled.
+				return result;
+			}
+		}
+
 		MethodGraph.Linked methodGraph = MethodGraph.Compiler.Default.forJavaHierarchy().compile(managedCtClass);
 		for (MethodGraph.Node node : methodGraph.listNodes()) {
 			MethodDescription methodDescription = node.getRepresentative();
-			AnnotationDescription.Loadable<Access> access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
+			if (methodDescription.getDeclaringType().represents(Object.class)) { // skip class java.lang.Object methods
+				continue;
+			}
+			access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
 			AnnotationDescription.Loadable<Id> id = methodDescription.getDeclaredAnnotations().ofType(Id.class);
-			if (access != null && access.load().value() == AccessType.PROPERTY) {
-				if (!log.isDebugEnabled()) {
-					// return immediately if debug logging is not enabled.
-					return true;
+			if (accessTypeDefaultIsField) {
+				if (access == null || null == (access.load().value())) {
+					// log warning about undefined case when entity class defaults to AccessType.FIELD but
+					// property accessor doesn't override with AccessType.PROPERTY setting.
+					// Reviewer: should this log message be changed to DEBUG instead of Warning?
+					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY]",
+							methodDescription.getDeclaringType().getActualName(), methodDescription.getActualName());
+					result = false;
 				}
-				log.debugf("Skipping enhancement of [%s]: due to superclass [%s] use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), methodDescription.getDeclaringType().getActualName(), Access.class.getName());
-				result = true;
 			}
-			if (id != null) {
-				if (!log.isDebugEnabled()) {
-					// return immediately if debug logging is not enabled.
-					return true;
+
+			fieldList = new ArrayList<>();
+			for (FieldDescription ctField : methodDescription.getDeclaringType().getDeclaredFields()) {
+				if (!Modifier.isStatic(ctField.getModifiers())) {
+					AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription(enhancementContext, ctField);
+					if (enhancementContext.isPersistentField(annotatedField)) {
+						fieldList.add(annotatedField);
+					}
 				}
-				log.debugf("Skipping enhancement of [%s]: due to superclass [%s] use of [%s] annotation used for property access using JavaBeans-style property accessors", managedCtClass.getName(), methodDescription.getDeclaringType().getActualName(), Id.class.getName());
-				result = true;
 			}
+			// Check that getter/setters are named to reference a field that matches the method name pattern
+			String methodName = methodDescription.getActualName();
+			if (methodName.equals("") ||
+					(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
+				log.debugf("Enhancer will not validate class [%s] method [%s]", methodDescription.getDeclaringType().getActualName(), methodName);
+				continue;
+			}
+			String methodFieldName;
+			if (methodName.startsWith("is")) { // skip past "is"
+				methodFieldName = methodName.substring(2);
+			} else { // skip past "get" or "set"
+				methodFieldName = methodName.substring(3);
+			}
+			boolean propertyNameMatchesFieldName = false;
+			// convert field letter to lower case
+			methodFieldName = methodFieldName.substring(0, 1).toLowerCase() + methodFieldName.substring(1);
+			for (AnnotatedFieldDescription field : fieldList) {
+				String fieldName = field.getName();
+				if (fieldName.equals(methodFieldName)) {
+					propertyNameMatchesFieldName = true;
+					break;
+				}
+			}
+
+			if (propertyNameMatchesFieldName == false) {
+				StringBuilder fields = new StringBuilder();
+				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
+				fields.deleteCharAt(fields.length() - 1);
+				log.debugf("Skipping enhancement of [%s]: due to property accessor method [%s] not matching actual class field names [%s]", methodDescription.getDeclaringType().getActualName(), methodName, fields);
+				result = false;
+			}
+			if (result == false && !log.isDebugEnabled()) {
+				// return immediately if debug logging is not enabled.
+				return result;
+			}
+		}
+
+		if (result == false && !log.isDebugEnabled()) {
+			// return immediately if debug logging is not enabled.
+			return result;
 		}
 		return result;
 	}
@@ -552,7 +672,7 @@ public class EnhancerImpl implements Enhancer {
 				AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription( enhancementContext, ctField );
 				if ( enhancementContext.isPersistentField( annotatedField ) && enhancementContext.isMappedCollection( annotatedField ) ) {
 					if ( ctField.getType().asErasure().isAssignableTo( Collection.class ) || ctField.getType().asErasure().isAssignableTo( Map.class ) ) {
-						collectionList.add( annotatedField );
+					collectionList.add( annotatedField );
 					}
 				}
 			}
