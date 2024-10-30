@@ -426,65 +426,6 @@ public class EnhancerImpl implements Enhancer {
 		// boolean accessTypeDefaultIsProperty = (access != null && access.load().value() == AccessType.PROPERTY);
 		boolean accessTypeDefaultIsField = (access != null && access.load().value() == AccessType.FIELD);
 		boolean result = true;
-		List<AnnotatedFieldDescription> fieldList = new ArrayList<>();
-		for (FieldDescription ctField : managedCtClass.getDeclaredFields()) {
-			if (!Modifier.isStatic(ctField.getModifiers())) {
-				AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription(enhancementContext, ctField);
-				if (enhancementContext.isPersistentField(annotatedField)) {
-					fieldList.add(annotatedField);
-				}
-			}
-		}
-		// Check that getter/setters are named to reference a field that matches the method name pattern
-		for (MethodDescription.InDefinedShape method : managedCtClass.getDeclaredMethods()) {
-			String methodName = method.getActualName();
-			if (methodName.equals("") ||
-					(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
-				log.debugf("Enhancer will not validate class [%s] method [%s]", managedCtClass.getName(), methodName);
-				continue;
-			}
-			access = method.getDeclaredAnnotations().ofType(Access.class);
-			// AnnotationDescription.Loadable<Id> id = method.getDeclaredAnnotations().ofType(Id.class);
-			if (accessTypeDefaultIsField) {
-				if (access == null || null == (access.load().value())) {
-					// log warning about undefined case when entity class defaults to AccessType.FIELD but
-					// property accessor doesn't override with AccessType.PROPERTY setting.
-					// Reviewer: should this log message be changed to DEBUG instead of Warning?
-					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY]", managedCtClass.getName(), methodName);
-					result = false;
-				}
-			}
-
-			String methodFieldName;
-			if (methodName.startsWith("is")) { // skip past "is"
-				methodFieldName = methodName.substring(2);
-			} else { // skip past "get" or "set"
-				methodFieldName = methodName.substring(3);
-			}
-			boolean propertyNameMatchesFieldName = false;
-			// convert field letter to lower case
-			methodFieldName = methodFieldName.substring(0, 1).toLowerCase() + methodFieldName.substring(1);
-			for (AnnotatedFieldDescription field : fieldList) {
-				String fieldName = field.getName();
-				if (fieldName.equals(methodFieldName)) {
-					propertyNameMatchesFieldName = true;
-					break;
-				}
-			}
-
-			if (propertyNameMatchesFieldName == false) {
-				StringBuilder fields = new StringBuilder();
-				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
-				fields.deleteCharAt(fields.length() - 1);
-				log.debugf("Skipping enhancement of [%s]: due to property accessor method [%s] not matching actual class field names [%s]", managedCtClass.getName(), methodName, fields);
-				result = false;
-			}
-			if (result == false && !log.isDebugEnabled()) {
-				// return immediately if debug logging is not enabled.
-				return result;
-			}
-		}
-
 		MethodGraph.Linked methodGraph = MethodGraph.Compiler.Default.forJavaHierarchy().compile(managedCtClass);
 		for (MethodGraph.Node node : methodGraph.listNodes()) {
 			MethodDescription methodDescription = node.getRepresentative();
@@ -498,13 +439,13 @@ public class EnhancerImpl implements Enhancer {
 					// log warning about undefined case when entity class defaults to AccessType.FIELD but
 					// property accessor doesn't override with AccessType.PROPERTY setting.
 					// Reviewer: should this log message be changed to DEBUG instead of Warning?
-					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY]",
-							methodDescription.getDeclaringType().getActualName(), methodDescription.getActualName());
+					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY] when [%s] has specified [AccessType.FIELD]",
+							methodDescription.getDeclaringType().getActualName(), methodDescription.getActualName(), managedCtClass.getName() );
 					result = false;
 				}
 			}
 
-			fieldList = new ArrayList<>();
+			ArrayList<AnnotatedFieldDescription> fieldList = new ArrayList<>();
 			for (FieldDescription ctField : methodDescription.getDeclaringType().getDeclaredFields()) {
 				if (!Modifier.isStatic(ctField.getModifiers())) {
 					AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription(enhancementContext, ctField);
@@ -517,7 +458,7 @@ public class EnhancerImpl implements Enhancer {
 			String methodName = methodDescription.getActualName();
 			if (methodName.equals("") ||
 					(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
-				log.debugf("Enhancer will not validate class [%s] method [%s]", methodDescription.getDeclaringType().getActualName(), methodName);
+				// log.tracef("Enhancer will not validate class [%s] method [%s]", methodDescription.getDeclaringType().getActualName(), methodName);
 				continue;
 			}
 			String methodFieldName;
@@ -536,7 +477,6 @@ public class EnhancerImpl implements Enhancer {
 					break;
 				}
 			}
-
 			if (propertyNameMatchesFieldName == false) {
 				StringBuilder fields = new StringBuilder();
 				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
