@@ -81,20 +81,20 @@ public class OneToManyAssociationTest {
         List<CustomerInventory> inventoryIdList = new ArrayList<>();
 
         @OneToMany( mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.EAGER )
-        List<CustomerInventory> customerInventories = new ArrayList<>();
+        List<CustomerInventory> inventories = new ArrayList<>();
 
         void addInventory(CustomerInventory inventory) {
-            List<CustomerInventory> list = customerInventories;
+            List<CustomerInventory> list = inventories;
             list.add( inventory );
-            customerInventories = list;
+            inventories = list;
         }
 
         List<CustomerInventory> getInventories() {
-            return Collections.unmodifiableList( customerInventories );
+            return Collections.unmodifiableList(inventories);
         }
 
         void removeInventory(CustomerInventory inventory) {
-            customerInventories.remove( inventory );
+            inventories.remove( inventory );
         }
     }
 
