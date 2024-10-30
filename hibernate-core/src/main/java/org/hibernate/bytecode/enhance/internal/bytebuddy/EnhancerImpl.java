@@ -477,10 +477,12 @@ public class EnhancerImpl implements Enhancer {
 					break;
 				}
 			}
-			if (propertyNameMatchesFieldName == false) {
+			if (!propertyNameMatchesFieldName) {
 				StringBuilder fields = new StringBuilder();
 				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
-				fields.deleteCharAt(fields.length() - 1);
+				if (fields.length() > 0) {
+					fields.deleteCharAt(fields.length() - 1);
+				}
 				log.debugf("Skipping enhancement of [%s]: due to property accessor method [%s] not matching actual class field names [%s]", methodDescription.getDeclaringType().getActualName(), methodName, fields);
 				result = false;
 			}
