@@ -73,7 +73,6 @@ public class MissingSetterWithEnhancementTest {
 
 	@Entity
 	public static class EntityWithMissingSetter {
-		@Id
     	private Long id;
     	@Column
 		private int someInt;
@@ -81,7 +80,7 @@ public class MissingSetterWithEnhancementTest {
 		private String name;
 
 
-
+    	@Id
 		public Long getId() {
 			return id;
 		}
