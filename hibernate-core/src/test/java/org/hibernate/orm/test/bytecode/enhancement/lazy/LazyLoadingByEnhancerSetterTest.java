@@ -10,7 +10,6 @@ import org.hibernate.cfg.AvailableSettings;
 
 import org.hibernate.testing.bytecode.enhancement.extension.BytecodeEnhanced;
 import org.hibernate.testing.orm.junit.DomainModel;
-import org.hibernate.testing.orm.junit.FailureExpected;
 import org.hibernate.testing.orm.junit.JiraKey;
 import org.hibernate.testing.orm.junit.ServiceRegistry;
 import org.hibernate.testing.orm.junit.SessionFactory;
@@ -79,7 +78,6 @@ public class LazyLoadingByEnhancerSetterTest {
     }
 
     @Test
-    @FailureExpected( jiraKey = "HHH-10747" )
     public void testProperty(SessionFactoryScope scope) {
         scope.inTransaction( s -> {
             ItemProperty input = new ItemProperty();
@@ -133,18 +131,18 @@ public class LazyLoadingByEnhancerSetterTest {
     @Table( name = "ITEM_P" )
     static class ItemProperty implements Item {
 
-        private String aName;
+        private String name;
 
-        private Map<String, String> parameterMap = new HashMap<>();
+        private Map<String, String> parameters = new HashMap<>();
 
         @Id
         @Column( nullable = false )
         public String getName() {
-            return aName;
+            return name;
         }
 
         public void setName(String name) {
-            this.aName = name;
+            this.name = name;
         }
 
         @ElementCollection( fetch = FetchType.EAGER )
@@ -153,11 +151,11 @@ public class LazyLoadingByEnhancerSetterTest {
         @Column( name = "PARAM_VAL", length = 65535 )
         @Override
         public Map<String, String> getParameters() {
-            return parameterMap;
+            return parameters;
         }
 
         public void setParameters(Map<String, String> parameters) {
-            this.parameterMap = parameters;
+            this.parameters = parameters;
         }
     }
 }
