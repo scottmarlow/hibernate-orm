@@ -44,7 +44,6 @@ import org.hibernate.internal.CoreMessageLogger;
 
 import jakarta.persistence.Access;
 import jakarta.persistence.AccessType;
-import jakarta.persistence.Id;
 import jakarta.persistence.metamodel.Type;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.annotation.AnnotationDescription;
@@ -433,7 +432,6 @@ public class EnhancerImpl implements Enhancer {
 				continue;
 			}
 			access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
-			AnnotationDescription.Loadable<Id> id = methodDescription.getDeclaredAnnotations().ofType(Id.class);
 			if (accessTypeDefaultIsField) {
 				if (access == null || null == (access.load().value())) {
 					// log warning about undefined case when entity class defaults to AccessType.FIELD but
