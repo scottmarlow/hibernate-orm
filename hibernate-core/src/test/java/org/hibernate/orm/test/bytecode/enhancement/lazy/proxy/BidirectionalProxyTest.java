@@ -70,7 +70,7 @@ public class BidirectionalProxyTest {
 					for (BEntity b : session.createQuery("from BEntity b", BEntity.class).getResultList()) {
 						final Statistics stats = scope.getSessionFactory().getStatistics();
 						stats.clear();
-						AChildEntity a = b.getA();
+						AChildEntity a = b.getAChildEntity();
 						assertEquals( 0, stats.getPrepareStatementCount() );
 						a.getVersion();
 						assertEquals( 1, stats.getPrepareStatementCount() );
@@ -99,7 +99,7 @@ public class BidirectionalProxyTest {
 					for (BEntity b : session.createQuery("from BEntity b", BEntity.class).getResultList()) {
 						final Statistics stats = scope.getSessionFactory().getStatistics();
 						stats.clear();
-						AChildEntity a = b.getA();
+						AChildEntity a = b.getAChildEntity();
 						assertEquals( "this is a string", a.getStringField() );
 						assertEquals( 2, a.getVersion() );
 						assertEquals( new Integer( 1 ), a.getIntegerField() );
@@ -112,7 +112,7 @@ public class BidirectionalProxyTest {
 					for (CEntity c : session.createQuery("from CEntity c", CEntity.class).getResultList()) {
 						final Statistics stats = scope.getSessionFactory().getStatistics();
 						stats.clear();
-						AEntity a = c.getA();
+						AEntity a = c.getAChildEntity();
 						assertEquals( 0, stats.getPrepareStatementCount() );
 						a.getVersion();
 						assertEquals( 1, stats.getPrepareStatementCount() );
@@ -131,7 +131,7 @@ public class BidirectionalProxyTest {
 					for (CEntity c : session.createQuery("from CEntity c", CEntity.class).getResultList()) {
 						final Statistics stats = scope.getSessionFactory().getStatistics();
 						stats.clear();
-						AEntity a = c.getA();
+						AEntity a = c.getAChildEntity();
 						assertEquals( 2, a.getVersion() );
 						assertEquals( new Integer( 1 ), a.getIntegerField() );
 					}
@@ -145,13 +145,13 @@ public class BidirectionalProxyTest {
 				session -> {
 					AChildEntity a = new AChildEntity("a");
 					BEntity b = new BEntity("b");
-					b.setA(a);
+					b.setAChildEntity(a);
 					session.persist(a);
 					session.persist(b);
 
 					AChildEntity a1 = new AChildEntity("a1");
 					CEntity c = new CEntity( "c" );
-					c.setA( a1 );
+					c.setAChildEntity( a1 );
 					session.persist( a1 );
 					session.persist( c );
 				}
@@ -191,12 +191,12 @@ public class BidirectionalProxyTest {
 			this.id = id;
 		}
 
-		public void setA(AEntity a) {
+		public void setAChildEntity(AEntity a) {
 			aChildEntity = a;
 			a.getcEntries().add(this);
 		}
 
-		public AEntity getA() {
+		public AEntity getAChildEntity() {
 			return aChildEntity;
 		}
 
@@ -228,12 +228,12 @@ public class BidirectionalProxyTest {
 			this.id = id;
 		}
 
-		public void setA(AChildEntity a) {
+		public void setAChildEntity(AChildEntity a) {
 			aChildEntity = a;
 			a.getEntries().add(this);
 		}
 
-		public AChildEntity getA() {
+		public AChildEntity getAChildEntity() {
 			return aChildEntity;
 		}
 
