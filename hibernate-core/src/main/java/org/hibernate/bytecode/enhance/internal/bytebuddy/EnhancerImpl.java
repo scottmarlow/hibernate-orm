@@ -11,12 +11,16 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
+import net.bytebuddy.description.method.MethodList;
+import net.bytebuddy.description.type.TypeList;
 import net.bytebuddy.dynamic.scaffold.MethodGraph;
 import org.hibernate.Version;
 import org.hibernate.bytecode.enhance.VersionMismatchException;
@@ -422,68 +426,92 @@ public class EnhancerImpl implements Enhancer {
 		// determine the default AccessType for entity hierarchy https://jakarta.ee/specifications/persistence/3.2/jakarta-persistence-spec-3.2#a122
 		// TODO: ^ needs to be handled for all of {entity class, mapped superclass, embeddable class, mapping annotations}
 		AnnotationDescription.Loadable<Access> access = managedCtClass.getDeclaredAnnotations().ofType(Access.class);
-		// boolean accessTypeDefaultIsProperty = (access != null && access.load().value() == AccessType.PROPERTY);
+		boolean accessTypeDefaultIsProperty = (access != null && access.load().value() == AccessType.PROPERTY);
 		boolean accessTypeDefaultIsField = (access != null && access.load().value() == AccessType.FIELD);
 		boolean result = true;
-		MethodGraph.Linked methodGraph = MethodGraph.Compiler.Default.forJavaHierarchy().compile(managedCtClass);
+		MethodGraph.Linked methodGraph = MethodGraph.Compiler.Default.forJavaHierarchy().compile((TypeDefinition)managedCtClass);
+		Set visitedClasses = new HashSet<TypeDefinition>();
 		for (MethodGraph.Node node : methodGraph.listNodes()) {
 			MethodDescription methodDescription = node.getRepresentative();
 			if (methodDescription.getDeclaringType().represents(Object.class)) { // skip class java.lang.Object methods
 				continue;
 			}
-			access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
 			if (accessTypeDefaultIsField) {
+				access = methodDescription.getDeclaredAnnotations().ofType(Access.class);
 				if (access == null || null == (access.load().value())) {
 					// log warning about undefined case when entity class defaults to AccessType.FIELD but
 					// property accessor doesn't override with AccessType.PROPERTY setting.
 					// Reviewer: should this log message be changed to DEBUG instead of Warning?
 					log.warnf("Skipping enhancement of [%s]: due to property accessor method [%s] missing [AccessType.PROPERTY] when [%s] has specified [AccessType.FIELD]",
-							methodDescription.getDeclaringType().getActualName(), methodDescription.getActualName(), managedCtClass.getName() );
+							managedCtClass, methodDescription.getActualName(), managedCtClass.getName());
 					result = false;
 				}
 			}
+			TypeDefinition visitClass = methodDescription.getDeclaringType();
+			if (!visitedClasses.add(visitClass)) {
+				// already visited the methodDescription.getDeclaringType() class
+				continue;
+			}
 
-			ArrayList<AnnotatedFieldDescription> fieldList = new ArrayList<>();
-			for (FieldDescription ctField : methodDescription.getDeclaringType().getDeclaredFields()) {
+			for (FieldDescription ctField : visitClass.getDeclaredFields()) {
 				if (!Modifier.isStatic(ctField.getModifiers())) {
 					AnnotatedFieldDescription annotatedField = new AnnotatedFieldDescription(enhancementContext, ctField);
+					boolean containsPropertyAccessorMethods = false;
 					if (enhancementContext.isPersistentField(annotatedField)) {
-						fieldList.add(annotatedField);
+						TypeList typeList =  annotatedField.annotations.asTypeList();
+						boolean persistenceFieldHasAnnotation =
+								typeList.stream().anyMatch( typeDefinitions ->
+										(typeDefinitions.getName().contains("jakarta.persistence.Id") ||
+												typeDefinitions.getName().contains("jakarta.persistence.Inheritance") ||
+												typeDefinitions.getName().contains("jakarta.persistence.ManyToOne") ||
+												typeDefinitions.getName().contains("jakarta.persistence.ManyToMany") ||
+												typeDefinitions.getName().contains("jakarta.persistence.OneToMany") ||
+												typeDefinitions.getName().contains("jakarta.persistence.OneToOne")));
+						// If the AccessTypeDefaultIsProperty that means only properties (e.g. get/set/is methods) should have Persistence annotations
+						// and we are checking if both conditions are true (default AccessType is PROPERTY and we have Persistence annotations specified).
+						if (accessTypeDefaultIsProperty && persistenceFieldHasAnnotation) {
+							log.debugf("Skipping enhancement of [%s] since it has AcessType.PROPERTY: but class [%s] has field [%s] that uses Persistence annotations",
+									managedCtClass, visitClass.getActualName(), ctField.getName());
+							result = false;
+						}
+
+						boolean propertyNameMatchesFieldName = false;
+						for (MethodDescription method : visitClass.getDeclaredMethods()) {
+							// Check that getter/setters are named to reference a field that matches the method name pattern
+							String methodName = method.getActualName();
+							if (methodName.equals("") ||
+									(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
+								// log.tracef("Enhancer will not validate class [%s] method [%s]", methodDescription.getDeclaringType().getActualName(), methodName);
+								continue;
+							}
+							String methodFieldName;
+							if (methodName.startsWith("is")) { // skip past "is"
+								methodFieldName = methodName.substring(2);
+								containsPropertyAccessorMethods = true;
+							} else if (methodName.startsWith("get") || methodName.startsWith("set")){ // skip past "get" or "set"
+								methodFieldName = methodName.substring(3);
+								containsPropertyAccessorMethods = true;
+							} else {
+								// not a property accessor method so ignore it
+								continue;
+							}
+							// convert field letter to lower case
+							methodFieldName = methodFieldName.substring(0, 1).toLowerCase() + methodFieldName.substring(1);
+
+							if (ctField.getName().equals(methodFieldName)) {
+								propertyNameMatchesFieldName = true;
+								break;
+							}
+						}
+						if (!persistenceFieldHasAnnotation && !propertyNameMatchesFieldName && containsPropertyAccessorMethods ) {
+							log.debugf("Skipping enhancement of [%s]: due to class [%s] not having a property accessor method name matching field name [%s]",
+									managedCtClass, visitClass.getActualName(), ctField.getName());
+							result = false;
+						}
 					}
 				}
 			}
-			// Check that getter/setters are named to reference a field that matches the method name pattern
-			String methodName = methodDescription.getActualName();
-			if (methodName.equals("") ||
-					(!methodName.startsWith("get") && !methodName.startsWith("set") && !methodName.startsWith("is"))) {
-				// log.tracef("Enhancer will not validate class [%s] method [%s]", methodDescription.getDeclaringType().getActualName(), methodName);
-				continue;
-			}
-			String methodFieldName;
-			if (methodName.startsWith("is")) { // skip past "is"
-				methodFieldName = methodName.substring(2);
-			} else { // skip past "get" or "set"
-				methodFieldName = methodName.substring(3);
-			}
-			boolean propertyNameMatchesFieldName = false;
-			// convert field letter to lower case
-			methodFieldName = methodFieldName.substring(0, 1).toLowerCase() + methodFieldName.substring(1);
-			for (AnnotatedFieldDescription field : fieldList) {
-				String fieldName = field.getName();
-				if (fieldName.equals(methodFieldName)) {
-					propertyNameMatchesFieldName = true;
-					break;
-				}
-			}
-			if (!propertyNameMatchesFieldName) {
-				StringBuilder fields = new StringBuilder();
-				fieldList.stream().forEach(fld -> fields.append(fld).append(","));
-				if (fields.length() > 0) {
-					fields.deleteCharAt(fields.length() - 1);
-				}
-				log.debugf("Skipping enhancement of [%s]: due to property accessor method [%s] not matching actual class field names [%s]", methodDescription.getDeclaringType().getActualName(), methodName, fields);
-				result = false;
-			}
+
 			if (result == false && !log.isDebugEnabled()) {
 				// return immediately if debug logging is not enabled.
 				return result;
