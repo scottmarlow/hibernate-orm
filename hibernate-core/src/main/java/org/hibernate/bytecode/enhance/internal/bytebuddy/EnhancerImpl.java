@@ -25,6 +25,7 @@ import net.bytebuddy.description.method.MethodList;
 import net.bytebuddy.description.type.TypeDefinition;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.description.type.TypeDescription.Generic;
+import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.dynamic.scaffold.MethodGraph;
 import net.bytebuddy.implementation.FieldAccessor;
@@ -32,6 +33,7 @@ import net.bytebuddy.implementation.FixedValue;
 import net.bytebuddy.implementation.Implementation;
 import net.bytebuddy.implementation.StubMethod;
 
+import net.bytebuddy.pool.TypePool;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.hibernate.AssertionFailure;
 import org.hibernate.Version;
@@ -92,7 +94,9 @@ public class EnhancerImpl implements Enhancer {
 	 * @param byteBuddyState refers to the ByteBuddy instance to use
 	 */
 	public EnhancerImpl(final EnhancementContext enhancementContext, final ByteBuddyState byteBuddyState) {
-		this( enhancementContext, byteBuddyState, ModelTypePool.buildModelTypePool( enhancementContext.getLoadingClassLoader() ) );
+		// this( enhancementContext, byteBuddyState, ModelTypePool.buildModelTypePool( enhancementContext.getLoadingClassLoader() ) );
+		this( enhancementContext, byteBuddyState, new NoTypePoolEnhancerClassLocator(ClassFileLocator.ForClassLoader.of(enhancementContext.getLoadingClassLoader())) );
+
 	}
 
 	/**
@@ -843,4 +847,29 @@ public class EnhancerImpl implements Enhancer {
 		}
 	}
 
+	private static class NoTypePoolEnhancerClassLocator extends TypePool.Default implements EnhancerClassLocator {
+
+		private final ClassFileLocator classFileLocator;
+
+		public NoTypePoolEnhancerClassLocator(ClassFileLocator classFileLocator) {
+			// public Default(CacheProvider cacheProvider, ClassFileLocator classFileLocator, ReaderMode readerMode) {
+			super( new TypePool.CacheProvider.Simple(), classFileLocator, ReaderMode.FAST);
+			this.classFileLocator = classFileLocator;
+		}
+
+		@Override
+		public void registerClassNameAndBytes(String className, byte[] originalBytes) {
+			// ignore
+		}
+
+		@Override
+		public void deregisterClassNameAndBytes(String className) {
+			// ignore
+		}
+
+		@Override
+		public ClassFileLocator asClassFileLocator() {
+			return classFileLocator;
+		}
+	}
 }
