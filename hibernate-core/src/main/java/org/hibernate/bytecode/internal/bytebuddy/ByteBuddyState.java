@@ -237,6 +237,7 @@ public final class ByteBuddyState {
 					"\nDetails: " +
 					"referenceClass.getClassLoader() == " + referenceClass.getClassLoader() +
 					"\nLoaded class classloader = " + result.getClassLoader());
+				throw new ClassNotFoundException(className);
 				}
 				return result;
 		}
