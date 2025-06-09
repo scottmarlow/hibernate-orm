@@ -187,8 +187,14 @@ public class EntityRepresentationStrategyPojoStandard implements EntityRepresent
 	}
 
 	private Map<String, PropertyAccess> buildPropertyAccessMap(PersistentClass bootDescriptor) {
+		LOG.info("xxx 1. EntityRepresentationStratgyPojoStandard.buildPropertyAccessMap bootDescriptor class name = " + bootDescriptor.getMappedClass().getName() +
+				"bootDescriptor class loader = " + bootDescriptor.getMappedClass().getClassLoader());
 		final Map<String, PropertyAccess> propertyAccessMap = new LinkedHashMap<>();
 		for ( Property property : bootDescriptor.getPropertyClosure() ) {
+			LOG.info("xxx 2. EntityRepresentationStratgyPojoStandard.buildPropertyAccessMap property = " +
+							property.getName() +
+					" classname=" + property.getReturnedClassName() +
+					" mappedJtd classloader = " + mappedJtd.getJavaTypeClass().getClassLoader());
 			propertyAccessMap.put( property.getName(), makePropertyAccess( property ) );
 		}
 		return propertyAccessMap;
@@ -281,6 +287,18 @@ public class EntityRepresentationStrategyPojoStandard implements EntityRepresent
 						"Setter",
 						idSetterMethod
 				);
+
+				LOG.info("xxx 1. EntityRepresentationStrategyPojoStandard.createProxyFactory for bootDescriptor.getMappedClass() (clazz) = " + clazz.getName() + " classloader = " + clazz.getClassLoader() + " TCCL = " +
+						Thread.currentThread().getContextClassLoader().getName());
+				if (idGetterMethod != null) {
+					LOG.info("xxx 2. EntityRepresentationStrategyPojoStandard.createProxyFactory idGetterMethod declaring class = " + idGetterMethod.getDeclaringClass()  +
+							"idGetterMethod.getDeclaringClass() classloader = " + idGetterMethod.getDeclaringClass().getClassLoader().getName());
+				}
+				if (idSetterMethod != null) {
+					LOG.info("xxx 3. EntityRepresentationStrategyPojoStandard.createProxyFactory idSetterMethod declaring class = " + idSetterMethod.getDeclaringClass()  +
+							"idSetterMethod.getDeclaringClass() classloader = " + idSetterMethod.getDeclaringClass().getClassLoader().getName());
+				}
+
 			}
 			else {
 				idGetterMethod = null;
@@ -298,10 +316,13 @@ public class EntityRepresentationStrategyPojoStandard implements EntityRepresent
 		final Method proxySetIdentifierMethod = idSetterMethod == null || proxyInterface == null
 				? null
 				: ReflectHelper.getMethod( proxyInterface, idSetterMethod );
+		LOG.info("xxx 4.  EntityRepresentationStrategyPojoStandard.createProxyFactory proxyGetIdentifierMethod.getDeclaringClass().getClassLoader().getName() = " + proxyGetIdentifierMethod.getDeclaringClass().getClassLoader().getName());
+		LOG.info("xxx 5.  EntityRepresentationStrategyPojoStandard.createProxyFactory proxySetIdentifierMethod.getDeclaringClass().getClassLoader().getName() = " + proxySetIdentifierMethod.getDeclaringClass().getClassLoader().getName());
 
 		final ProxyFactory proxyFactory = bytecodeProvider.getProxyFactoryFactory()
 				.buildProxyFactory( creationContext.getSessionFactory() );
 		try {
+			LOG.info("xxx 6.  EntityRepresentationStrategyPojoStandard.createProxyFactory mappedClass.getClassLoader().getName() = " + mappedClass.getClassLoader().getName() );
 			proxyFactory.postInstantiate(
 					bootDescriptor.getEntityName(),
 					mappedClass,
@@ -312,7 +333,7 @@ public class EntityRepresentationStrategyPojoStandard implements EntityRepresent
 							(CompositeType) bootDescriptor.getIdentifier().getType() :
 							null
 			);
-
+			LOG.info("xxx 7.  EntityRepresentationStrategyPojoStandard.createProxyFactory proxyFactory= " + proxyFactory );
 			return proxyFactory;
 		}
 		catch (HibernateException he) {
@@ -322,6 +343,8 @@ public class EntityRepresentationStrategyPojoStandard implements EntityRepresent
 	}
 
 	private ReflectionOptimizer resolveReflectionOptimizer(BytecodeProvider bytecodeProvider) {
+		LOG.info("xxx EntityRepresentationStrategyPojoStandard.resolveReflectionOptimizer mappedJtd.getJavaTypeClass() = " + mappedJtd.getJavaTypeClass() +
+				" mappedJtd.getJavaTypeClass() classloader = " + mappedJtd.getJavaTypeClass().getClassLoader());
 		return bytecodeProvider.getReflectionOptimizer(
 				mappedJtd.getJavaTypeClass(),
 				propertyAccessMap

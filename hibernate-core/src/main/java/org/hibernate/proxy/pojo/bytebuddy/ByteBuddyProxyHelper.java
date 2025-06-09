@@ -53,15 +53,16 @@ public class ByteBuddyProxyHelper implements Serializable {
 	public Class buildProxy(
 			final Class<?> persistentClass,
 			final Class<?>[] interfaces) {
-		Set<Class<?>> key = new HashSet<>();
-		if ( interfaces.length == 1 ) {
-			key.add( persistentClass );
-		}
-		Collections.addAll( key, interfaces );
+			Set<Class<?>> key = new HashSet<>();
+			if (interfaces.length == 1) {
+				key.add(persistentClass);
+			}
+			Collections.addAll(key, interfaces);
 
-		final String proxyClassName = persistentClass.getTypeName() + "$" + PROXY_NAMING_SUFFIX;
-		return byteBuddyState.loadProxy( persistentClass, proxyClassName,
-				proxyBuilder( TypeDescription.ForLoadedType.of( persistentClass ), new TypeList.Generic.ForLoadedTypes( interfaces ) ) );
+			final String proxyClassName = persistentClass.getTypeName() + "$" + PROXY_NAMING_SUFFIX;
+			LOG.infof("build proxy class %s for entity class from classloader %s", proxyClassName, persistentClass.getClassLoader());
+			return byteBuddyState.loadProxy(persistentClass, proxyClassName,
+					proxyBuilder(TypeDescription.ForLoadedType.of(persistentClass), new TypeList.Generic.ForLoadedTypes(interfaces)));
 	}
 
 	/**

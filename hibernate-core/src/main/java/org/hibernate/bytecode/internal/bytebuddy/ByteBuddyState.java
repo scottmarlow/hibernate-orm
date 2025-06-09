@@ -228,27 +228,59 @@ public final class ByteBuddyState {
 	 * @return The loaded generated class.
 	 */
 	public Class<?> load(Class<?> referenceClass, String className, BiFunction<ByteBuddy, NamingStrategy, DynamicType.Builder<?>> makeClassFunction) {
-		try {
-			return referenceClass.getClassLoader().loadClass( className );
-		}
-		catch (ClassNotFoundException e) {
-			// Ignore
-		}
-		try {
-			return make( makeClassFunction.apply( byteBuddy, new FixedNamingStrategy( className ) ) )
-					.load(
-							referenceClass.getClassLoader(),
-							resolveClassLoadingStrategy( referenceClass )
-					)
-					.getLoaded();
-		}
-		catch (LinkageError e) {
+
 			try {
-				return referenceClass.getClassLoader().loadClass( className );
+				LOG.info("xxx 1. ByteBuddyState.load referenceClass classloader = " + referenceClass.getClassLoader() +
+						" className = " + className +
+						" TCCL = " + Thread.currentThread().getContextClassLoader()
+				);
+				Thread.dumpStack();
+				Class<?> result = referenceClass.getClassLoader().loadClass(className);
+				LOG.info("xxx 1.1 ByteBuddyState.load loaded class has classloader = " +
+						result.getClassLoader());
+				if (result.getClassLoader() != referenceClass.getClassLoader()) {
+					LOG.info("xxx 1.2 ByteBuddyState.load detected problem where " +
+							"loading generated class \"" + className + "\" from a subdeployment is actually loading the generated class in the ear lib." +
+							"\nDetails: "+
+							"referenceClass.getClassLoader() == " + referenceClass.getClassLoader() +
+							"\nLoaded class classloader = " + result.getClassLoader());
+				}
+				return result;
+			} catch (ClassNotFoundException e) {
+				// Ignore
+				LOG.info("xxx 2. ByteBuddyState.load ClassNotFoundException ignored ByteBuddyState.load referenceClass classloader = " + referenceClass.getClassLoader() +
+						" className = " + className
+				);
+
+			} catch (Throwable e) {
+				// Ignore
+				LOG.info("xxx 2.1. ByteBuddyState.load Throwable " + e + " ignored ByteBuddyState.load referenceClass classloader = " + referenceClass.getClassLoader() +
+						" className = " + className
+				);
+
 			}
-			catch (ClassNotFoundException ex) {
-				throw new RuntimeException( "Couldn't load or define class [" + className + "]", e );
-			}
+			try {
+				LOG.info("xxx 3. generate the class with FixedNamingStrategy referenceClass classloader = " + referenceClass.getClassLoader() +
+						" className = " + className);
+
+				return make(makeClassFunction.apply(byteBuddy, new FixedNamingStrategy(className)))
+						.load(
+								referenceClass.getClassLoader(),
+								resolveClassLoadingStrategy(referenceClass)
+						)
+						.getLoaded();
+			} catch (LinkageError e) {
+				try {
+					LOG.info("xxx 4. ByteBuddyState.load LinkageError " + e + " ignored ByteBuddyState.load referenceClass classloader = " + referenceClass.getClassLoader() +
+							" className = " + className);
+
+					return referenceClass.getClassLoader().loadClass(className);
+				} catch (ClassNotFoundException ex) {
+					LOG.info("xxx 5. ByteBuddyState.load ClassNotFoundException " + ex + " ignored ByteBuddyState.load referenceClass classloader = " + referenceClass.getClassLoader() +
+							" className = " + className);
+
+					throw new RuntimeException("Couldn't load or define class [" + className + "]", e);
+				}
 		}
 	}
 

@@ -741,6 +741,9 @@ public class SessionImpl
 
 	@Override
 	public void persist(Object object) throws HibernateException {
+		log.info("xxx SessionImpl.persist(Object) = " + object +
+				" persisted object is from classloader = " + object.getClass().getClassLoader() +
+				" TCCL = " + Thread.currentThread().getContextClassLoader().getName());
 		checkOpen();
 		firePersist( new PersistEvent( null, object, this ) );
 	}

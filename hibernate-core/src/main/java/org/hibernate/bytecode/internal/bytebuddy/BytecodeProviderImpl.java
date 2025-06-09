@@ -150,6 +150,9 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 			}
 			else {
 				final String className = clazz.getName() + "$" + INSTANTIATOR_PROXY_NAMING_SUFFIX;
+				LOG.info("xxx BytecodeProviderImpl.getReflectionOptimizer get fastClass for class = " + className +
+						" and clazz from " + clazz.getClassLoader() + " constructor from declaring class = " + constructor.getDeclaringClass()  +
+						" and declaring class classloader = " + constructor.getDeclaringClass().getClassLoader());
 				fastClass = byteBuddyState.load( clazz, className, (byteBuddy, namingStrategy) -> byteBuddy
 						.with( namingStrategy )
 						.subclass( ReflectionOptimizer.InstantiationOptimizer.class )
@@ -170,6 +173,14 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 		catch (InvalidPropertyAccessorException ex) {
 			LOG.unableToGenerateReflectionOptimizer( clazz.getName(), ex.getMessage() );
 			return null;
+		}
+		try {
+			LOG.info("xxx BytecodeProviderImpl.getReflectionOptimizer (with Class[] types) generate getter/setters of property values with " +  OPTIMIZER_PROXY_NAMING_SUFFIX  +
+							" proxy for class = " + clazz.getName() + " which is for classloader = " +
+					clazz.getClassLoader() +
+					" TCCL = " + Thread.currentThread().getContextClassLoader().getName());
+		} catch (Throwable e) {
+			LOG.info("xxx BytecodeProviderImpl.getReflectionOptimizer couldn't log because Throwable = " + e.getMessage());
 		}
 
 		final Class<?> bulkAccessor = byteBuddyState.load( clazz, byteBuddy -> byteBuddy
@@ -201,6 +212,10 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 	@Override
 	public @Nullable ReflectionOptimizer getReflectionOptimizer(Class<?> clazz, Map<String, PropertyAccess> propertyAccessMap) {
 		final Class<?> fastClass;
+
+		LOG.info("xxx 1. BytecodeProviderImpl.getReflectionOptimizer (with propertyaccessmap) for clazz " + clazz.getName() + " clazz classloader = " + clazz.getClassLoader() + " TCCL = " +
+				Thread.currentThread().getContextClassLoader().getName());
+		Thread.dumpStack();
 		if ( !clazz.isInterface() && !Modifier.isAbstract( clazz.getModifiers() ) ) {
 			// we only provide a fast class instantiator if the class can be instantiated
 			final Constructor<?> constructor = findConstructor( clazz );
@@ -211,13 +226,23 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 				fastClass = null;
 			}
 			else {
+				LOG.info("xxx 1.2.0 about to load fastClass using constructor classloader " + constructor.getDeclaringClass().getClassLoader() +
+						" BytecodeProviderImpl.getReflectionOptimizer (with propertyaccessmap)" +
+						" clazz classloader =" + clazz.getClassLoader() +
+						" TCCL = " + Thread.currentThread().getContextClassLoader().getName());
 				final String className = clazz.getName() + "$" + INSTANTIATOR_PROXY_NAMING_SUFFIX;
+				// byteBuddyState.load returns fastClass from ear even though clazz.classloader == war +
+				// constructor.getDeclaringClass().getClassLoader() cl == war
 				fastClass = byteBuddyState.load( clazz, className, (byteBuddy, namingStrategy) -> byteBuddy
 						.with( namingStrategy )
 						.subclass( ReflectionOptimizer.InstantiationOptimizer.class )
 						.method( newInstanceMethodName )
 						.intercept( MethodCall.construct( constructor ) )
 				);
+				LOG.info("xxx 1.2.1 loaded fastClass BytecodeProviderImpl.getReflectionOptimizer (with propertyaccessmap) for clazz " + clazz.getName() + " classloader = " + clazz.getClassLoader() +
+							" fastClass classloader = " + fastClass.getClassLoader() +
+							" TCCL = " + Thread.currentThread().getContextClassLoader().getName());
+
 			}
 		}
 		else {
@@ -236,10 +261,13 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 
 		final String[] propertyNames = propertyAccessMap.keySet().toArray( new String[0] );
 		final Class<?> superClass = determineAccessOptimizerSuperClass( clazz, propertyNames, getters, setters );
+		LOG.info("xxx 2. BytecodeProviderImpl.getReflectionOptimizer superClass = " + superClass + " superClass classloader = " + superClass.getClassLoader());
 
 		final String className = clazz.getName() + "$" + OPTIMIZER_PROXY_NAMING_SUFFIX + encodeName( propertyNames, getters, setters );
+		LOG.info("xxx 3. BytecodeProviderImpl.getReflectionOptimizer generated className = " + className);
 		final Class<?> bulkAccessor;
 		if ( className.getBytes( StandardCharsets.UTF_8 ).length >= 0x10000 ) {
+			LOG.info("xxx 4. BytecodeProviderImpl.getReflectionOptimizer hit 64k limit so fallback to generating random class name");
 			// The JVM has a 64K byte limit on class name length, so fallback to random name if encoding exceeds that
 			bulkAccessor = byteBuddyState.load( clazz, byteBuddy -> byteBuddy
 					.with( new NamingStrategy.SuffixingRandom(
@@ -257,6 +285,7 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 			);
 		}
 		else {
+			LOG.info("xxx 5. BytecodeProviderImpl.getReflectionOptimizer will use className = " + className);
 			bulkAccessor = byteBuddyState.load( clazz, className, (byteBuddy, namingStrategy) -> byteBuddy
 					.with( namingStrategy )
 					.subclass( superClass )
@@ -271,6 +300,10 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 		}
 
 		try {
+			LOG.info("xxx 6. BytecodeProviderImpl.getReflectionOptimizer fastClass = " + fastClass + " fastClass classloader ="
+					+ fastClass.getClassLoader() +
+					"return new ReflectionOptimizerImpl " +
+					" TCCL = " + Thread.currentThread().getContextClassLoader().getName());
 			return new ReflectionOptimizerImpl(
 					fastClass != null ? (ReflectionOptimizer.InstantiationOptimizer) fastClass.newInstance() : null,
 					(ReflectionOptimizer.AccessOptimizer) bulkAccessor.newInstance()
@@ -1339,6 +1372,9 @@ public class BytecodeProviderImpl implements BytecodeProvider {
 
 	private static Constructor<?> findConstructor(Class<?> clazz) {
 		try {
+			LOG.info("xxx BytecodeProviderImpl.findConstructor of clazz = " + clazz.getName() + " clazz classloader = " + clazz.getClassLoader() +
+					" will return clazz.getDeclaredConstructor =  " + clazz.getDeclaredConstructor() +
+					" which has classloader = " + clazz.getDeclaredConstructor().getDeclaringClass().getClassLoader());
 			return clazz.getDeclaredConstructor();
 		}
 		catch (NoSuchMethodException e) {
