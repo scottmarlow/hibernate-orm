@@ -4843,6 +4843,10 @@ public abstract class AbstractEntityPersister
 			SharedSessionContractImplementor session)
 			throws HibernateException {
 		if ( shouldGetAllProperties( entity ) && accessOptimizer != null ) {
+			LOG.info("xxx AbstractEntityPersister.getPropertyValuesToInsert called with entity " + entity + "  class from classloader " + entity.getClass().getClassLoader() +
+					" and accessOptimizer from classloader = " + accessOptimizer.getClass().getClassLoader() +
+					" TCCL = " + Thread.currentThread().getContextClassLoader() +
+					" session factory name = " + session.getFactory().getName());
 			return accessOptimizer.getPropertyValues( entity );
 		}
 
@@ -5234,6 +5238,9 @@ public abstract class AbstractEntityPersister
 		postProcessAttributeMappings( creationProcess, bootEntityDescriptor );
 
 		final ReflectionOptimizer reflectionOptimizer = representationStrategy.getReflectionOptimizer();
+		if (accessOptimizer != null ) {
+			LOG.info("xxx AbstractEntityPersister.prepareMappingModel accessOptimizer class = " + accessOptimizer.getClass());
+		}
 		accessOptimizer = reflectionOptimizer != null ? reflectionOptimizer.getAccessOptimizer() : null;
 
 		// register a callback for after all `#prepareMappingModel` calls have finished.  here we want to delay the
