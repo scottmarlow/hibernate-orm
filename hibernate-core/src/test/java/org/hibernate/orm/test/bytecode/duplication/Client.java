@@ -7,6 +7,8 @@ package org.hibernate.orm.test.bytecode.duplication;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 
+import java.util.Date;
+
 /**
  * To be loaded reflectively...
  *
@@ -15,7 +17,10 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 public class Client {
 	public static void execute(EntityManagerFactory emf) {
 		emf.runInTransaction( (entityManager) -> {
-			entityManager.persist( new SimpleEntity( 1, "tester" ) );
+			long mydate = 2025;
+			SimpleEntity entity = new SimpleEntity( new Date(mydate), "tester" );
+			entity.setTsData(new java.sql.Timestamp(12L));
+			entityManager.persist( entity) ;
 			entityManager.createQuery( "from SimpleEntity" ).getResultList();
 		} );
 	}

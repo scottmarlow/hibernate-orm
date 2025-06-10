@@ -84,11 +84,11 @@ public class DuplicateClassTests {
 			jar3.as( ZipExporter.class ).exportTo( jar3File, true );
 
 			URL[] secondaryUrls = new URL[] { jar3File.toURI().toURL() };
-			final URLClassLoader secondaryClassLoader = new URLClassLoader( secondaryUrls, getClass().getClassLoader() );
-			Thread.currentThread().setContextClassLoader( secondaryClassLoader );
+			final URLClassLoader secondaryClassLoader = URLClassLoader.newInstance(secondaryUrls, classLoader );
+			// Thread.currentThread().setContextClassLoader( secondaryClassLoader );
 
 			try (EntityManagerFactory emf3 = Persistence.createEntityManagerFactory( "unit-1" )) {
-				executeUseCases( classLoader, emf3 );
+				executeUseCases( secondaryClassLoader, emf3 );
 			}
 		}
 	}
@@ -106,5 +106,9 @@ public class DuplicateClassTests {
 			cleanupMethod.invoke( null, entityManagerFactory );
 		}
 
+		final Class<?> entityClass = classLoader.loadClass( "org.hibernate.orm.test.bytecode.duplication.SimpleEntity" );
+		for ( Method method : entityClass.getMethods()) {
+			System.out.println("dollar method in entity class " + method);
+		}
 	}
 }
