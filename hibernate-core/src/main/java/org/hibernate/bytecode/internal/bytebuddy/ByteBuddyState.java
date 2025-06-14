@@ -253,6 +253,7 @@ public final class ByteBuddyState {
 				);
 
 			}
+			synchronized (referenceClass.getClassLoader()) { // hack to synchronize across threads performing the below operations on the same classloader
 			try {
 				LOG.info("xxx 3. generate the class with FixedNamingStrategy referenceClass classloader = " + referenceClass.getClassLoader() +
 						" className = " + className);
@@ -275,6 +276,7 @@ public final class ByteBuddyState {
 
 					throw new RuntimeException("Couldn't load or define class [" + className + "]", e);
 				}
+			}
 		}
 	}
 
