@@ -20,8 +20,11 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
+import org.hibernate.LockMode;
+import org.hibernate.Session;
 import org.hibernate.annotations.LazyGroup;
 import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.resource.transaction.spi.TransactionStatus;
 import org.hibernate.stat.Statistics;
 
 import org.hibernate.testing.bytecode.enhancement.EnhancementOptions;
@@ -33,10 +36,12 @@ import org.hibernate.testing.orm.junit.SessionFactory;
 import org.hibernate.testing.orm.junit.SessionFactoryScope;
 import org.hibernate.testing.orm.junit.Setting;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @JiraKey( "HHH-11147" )
 @DomainModel(
@@ -60,6 +65,30 @@ import static org.junit.Assert.assertEquals;
 @BytecodeEnhanced
 @EnhancementOptions( lazyLoading = true )
 public class BidirectionalProxyTest {
+
+	/**
+	 * Test that LockModeType.NONE on an non-entity class causes the transaction to be marked for rollback only.
+	 */
+	@Test
+	public void testLockModeTypeNone(SessionFactoryScope scope) {
+		scope.inTransaction(
+			session -> {
+				try {
+					Session s1 = scope.getSessionFactory().openSession();
+					s1.beginTransaction();
+					s1.lock( this, LockMode.NONE );
+					try {
+						fail( "Transaction should have been rolled back" );
+					}
+					catch (RuntimeException expected) {
+						Assertions.assertEquals( s1.getTransaction().getStatus(), TransactionStatus.MARKED_ROLLBACK,
+								"Expected that transaction is marked for rollback only" );
+					}
+				} catch( Throwable unexpectedError ) {
+					fail("the RuntimeException was not caught during call to s1.lock( this, LockMode.NONE )");
+				}
+		});
+	}
 
 	@Test
 	public void testIt(SessionFactoryScope scope) {
